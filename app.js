@@ -1,4 +1,4 @@
-const API=`${window.location.protocol}//${window.location.hostname}:8686/api`;
+const API='https://api.xox.web.id/api';
 const content=document.getElementById('content');const loader=document.getElementById('loading');let currentAnimeUrl='';let restoring=false;let firstView=true;function view(name,args=[]){const state={nanostream:true,name,args};if(restoring)return;if(firstView){history.replaceState(state,'',location.href);firstView=false}else history.pushState(state,'',location.href)}function restore(state){if(!state?.nanostream)return;restoring=true;const fn=window[state.name];if(typeof fn==='function')fn(...(state.args||[]));restoring=false}window.addEventListener('popstate',e=>restore(e.state));
 const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 4"><rect width="3" height="4" fill="#222631"/></svg>');
 function esc(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML}function show(h){content.innerHTML=h}function wait(v){loader.classList.toggle('hidden',!v)}
