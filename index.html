@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NanoStream — Streaming Anime Subtitle Indonesia</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar"><div class="nav-shell">
+<a class="brand" href="#" onclick="goHome();return false">Nano<span>Stream</span></a>
+<nav class="main-nav"><a href="#" onclick="loadHome();return false">Home</a><a href="#" onclick="loadOngoing(1);return false">Ongoing</a><a href="#" onclick="loadComplete(1);return false">Complete</a><a href="#" onclick="loadGenres();return false">Genres</a></nav>
+<div class="nav-actions"><div class="search"><input id="searchInput" placeholder="Search anime..." onkeydown="if(event.key==='Enter')doSearch()"><button onclick="doSearch()" aria-label="Search">⌕</button></div><button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☼</button></div>
+</div></header>
+<main><div id="loading" class="loader hidden"><div></div></div><div id="content"></div></main>
+<footer><div><a class="brand small" href="#" onclick="goHome();return false">Nano<span>Stream</span></a><p>Temukan, tonton, dan lanjutkan anime favoritmu.</p></div></footer>
+<script src="app.js"></script>
+</body></html>

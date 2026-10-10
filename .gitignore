@@ -1,0 +1,8 @@
+*.log
+.DS_Store
+.vscode/
+.idea/
+.hallmark/
+node_modules/
+.env
+.env.*
