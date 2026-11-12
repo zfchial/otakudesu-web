@@ -1,21 +1,85 @@
 <!doctype html>
 <html lang="id" data-theme="dark">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>NanoStream — Streaming Anime Subtitle Indonesia</title>
-<link rel="stylesheet" href="style.css">
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0b1020">
+<meta name="description" content="Platform streaming anime subtitle Indonesia dari OtakuDesu, Samehadaku, dan Anibiplay.">
+<meta name="theme-color" id="metaThemeColor" content="#09090b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NanoStream">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="topbar"><div class="nav-shell">
-<a class="brand" href="#" onclick="goHome();return false">Nano<span>Stream</span></a>
-<nav class="main-nav"><a href="#" onclick="loadHome();return false">Home</a><a href="#" onclick="loadOngoing(1);return false">Ongoing</a><a href="#" onclick="loadComplete(1);return false">Complete</a><a href="#" onclick="loadGenres();return false">Genres</a><a href="#" onclick="loadSamehadakuHome();return false">Samehadaku</a><a href="#" onclick="loadAnibi();return false">Anibiplay</a><a href="#" onclick="loadBookmarks();return false">Bookmarks</a><a href="#" onclick="loadHistory();return false">History</a></nav>
-<div class="nav-actions"><div class="search"><select id="searchSource" aria-label="Source"><option value="otakudesu">OtakuDesu</option><option value="samehadaku">Samehadaku</option><option value="anibi">Anibiplay</option></select><input id="searchInput" placeholder="Search anime..." onkeydown="if(event.key==='Enter')searchGo()"><button onclick="searchGo()" aria-label="Search">⌕</button></div><button class="account-button" onclick="accountAction()"><span class="account-dot"></span><span id="account-label">Account</span></button><button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☼</button></div>
-</div></header>
-<main><div id="loading" class="loader hidden"><div></div></div><div id="content"></div></main>
-<footer><div><a class="brand small" href="#" onclick="goHome();return false">Nano<span>Stream</span></a><p>Temukan, tonton, dan lanjutkan anime favoritmu.</p></div></footer>
+<div id="offlineBanner" class="offline-banner hidden">Mode offline aktif — menampilkan halaman tersimpan</div>
+<header class="topbar">
+  <div class="nav-shell">
+    <a class="brand" href="#" onclick="navClick('home',loadHome);return false">
+      <span class="brand-mark">N</span>
+      <span class="brand-text">Nano<span>Stream</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Navigasi utama">
+      <a href="#" data-nav="home" class="active" onclick="navClick('home',loadHome);return false">Home</a>
+      <a href="#" data-nav="ongoing" onclick="navClick('ongoing',()=>loadOngoing(1));return false">Ongoing</a>
+      <a href="#" data-nav="complete" onclick="navClick('complete',()=>loadComplete(1));return false">Complete</a>
+      <a href="#" data-nav="genres" onclick="navClick('genres',loadGenres);return false">Genres</a>
+      <a href="#" data-nav="samehadaku" onclick="navClick('samehadaku',loadSamehadakuHome);return false">Samehadaku</a>
+      <a href="#" data-nav="anibi" onclick="navClick('anibi',loadAnibi);return false">Anibiplay</a>
+      <a href="#" data-nav="bookmarks" onclick="navClick('bookmarks',loadBookmarks);return false">Bookmarks</a>
+      <a href="#" data-nav="history" onclick="navClick('history',loadHistory);return false">History</a>
+    </nav>
+    <div class="nav-actions">
+      <div class="search">
+        <select id="searchSource" aria-label="Sumber pencarian">
+          <option value="otakudesu">OtakuDesu</option>
+          <option value="samehadaku">Samehadaku</option>
+          <option value="anibi">Anibiplay</option>
+        </select>
+        <input id="searchInput" type="search" placeholder="Cari anime..." onkeydown="if(event.key==='Enter')searchGo()">
+        <button onclick="searchGo()" aria-label="Cari">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </button>
+      </div>
+      <button id="installBtn" class="btn-install hidden" onclick="installPWA()" title="Install Aplikasi NanoStream">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        <span>Install</span>
+      </button>
+      <button class="account-button" onclick="accountAction()">
+        <span class="account-dot"></span>
+        <span id="account-label">Login</span>
+      </button>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Ganti tema">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<main>
+  <div id="loading" class="loader hidden" role="status" aria-label="Memuat"><div></div></div>
+  <div id="content"></div>
+</main>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <a class="brand small" href="#" onclick="navClick('home',loadHome);return false">
+        <span class="brand-mark">N</span>
+        <span class="brand-text">Nano<span>Stream</span></span>
+      </a>
+      <p>Katalog dan streaming anime multi-sumber subtitle Indonesia.</p>
+    </div>
+    <div class="footer-right">
+      <span>PWA Ready</span>
+      <span>·</span>
+      <span>OtakuDesu · Samehadaku · Anibiplay</span>
+    </div>
+  </div>
+</footer>
+<div id="toast" class="toast hidden" role="alert"></div>
 <script src="app.js"></script>
-</body></html>
+</body>
+</html>
