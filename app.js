@@ -7,8 +7,11 @@ let firstView=true;
 let renderGen=0;
 let deferredInstallPrompt=null;
 let authToken=localStorage.getItem('nanostream-token')||'';
+let activeSearchSource='otakudesu';
+let scheduleDaysCache=[];
 
 const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 4"><rect width="3" height="4" fill="#18181b"/></svg>');
+const playIconSvg='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
 
 function esc(s){
   const d=document.createElement('div');
@@ -32,14 +35,60 @@ function showToast(msg,actionLabel,actionFn){
 }
 
 function setActiveNav(key){
-  document.querySelectorAll('.main-nav a[data-nav]').forEach(a=>{
+  document.querySelectorAll('[data-nav]').forEach(a=>{
     a.classList.toggle('active',a.dataset.nav===key);
+  });
+  document.querySelectorAll('[data-pill]').forEach(b=>{
+    b.classList.toggle('active',b.dataset.pill===key);
+  });
+  document.querySelectorAll('[data-bnav]').forEach(b=>{
+    b.classList.toggle('active',b.dataset.bnav===key);
   });
 }
 
 function navClick(key,fn){
+  closeSearchSheet();
   setActiveNav(key);
+  scrollTo(0,0);
   fn();
+}
+
+function syncSearchSource(src){
+  activeSearchSource=src||'otakudesu';
+  const sel=document.getElementById('searchSource');
+  if(sel&&sel.value!==activeSearchSource)sel.value=activeSearchSource;
+  document.querySelectorAll('[data-src]').forEach(b=>{
+    b.classList.toggle('active',b.dataset.src===activeSearchSource);
+  });
+}
+
+function openSearchSheet(){
+  const sheet=document.getElementById('searchSheet');
+  if(!sheet)return;
+  sheet.classList.remove('hidden');
+  setActiveNav('search');
+  const inp=document.getElementById('mobileSearchInput');
+  if(inp)setTimeout(()=>inp.focus(),40);
+}
+
+function closeSearchSheet(restoreKey='home'){
+  const sheet=document.getElementById('searchSheet');
+  if(sheet&&!sheet.classList.contains('hidden')){
+    sheet.classList.add('hidden');
+    if(restoreKey)setActiveNav(restoreKey);
+  }
+}
+
+function mobileSearchGo(){
+  const q=document.getElementById('mobileSearchInput')?.value.trim();
+  if(!q)return;
+  const desk=document.getElementById('searchInput');
+  if(desk)desk.value=q;
+  closeSearchSheet();
+  setActiveNav('');
+  if(activeSearchSource==='samehadaku')return shSearch(q);
+  if(activeSearchSource==='anibi')return anibiSearch(q);
+  return doSearch(q);
 }
 
 function view(name,args=[]){
@@ -61,6 +110,7 @@ function setView(gen,html){if(!stale(gen))show(html)}
 function restore(state){
   if(!state?.nanostream)return;
   restoring=true;
+  closeSearchSheet();
   const fn=window[state.name];
   if(typeof fn==='function')fn(...(state.args||[]));
   restoring=false;
@@ -105,6 +155,7 @@ function updateAccount(){
 }
 
 function accountAction(){
+  closeSearchSheet();
   if(authToken){
     setActiveNav('history');
     loadHistory();
@@ -142,10 +193,10 @@ function authCard(){
       <div>
         <span class="auth-kicker">NANOSTREAM ACCOUNT</span>
         <h1>Simpan daftar tontonan di <em>NanoStream</em>.</h1>
-        <p>Sinkronkan bookmark anime favorit dan lanjutkan episode terakhir lintas perangkat.</p>
+        <p>Sinkronkan Daftar Saya dan lanjutkan episode terakhir lintas perangkat.</p>
       </div>
       <div class="auth-points">
-        <span>Bookmark Personal</span>
+        <span>Daftar Saya</span>
         <span>Riwayat Episode</span>
         <span>Sinkronisasi Cloud</span>
       </div>
@@ -221,8 +272,8 @@ async function addBookmark(btn){
       title:btn.dataset.title,
       image:btn.dataset.image
     });
-    btn.textContent='Tersimpan';
-    showToast('Bookmark berhasil disimpan');
+    btn.textContent='✓ Di Daftar Saya';
+    showToast('Ditambahkan ke Daftar Saya');
   }catch(e){
     showToast(e.message);
   }
@@ -239,8 +290,8 @@ async function loadBookmarks(){
   const gen=view('loadBookmarks');
   try{
     const d=await authApi('/bookmarks');
-    const items=(d.data||[]).map(x=>({title:x.title,url:x.anime_url,image:x.image,episode:'Bookmark'}));
-    setView(gen,`<section class="section">${head('Bookmark Tersimpan',`${items.length} judul tersimpan`)}${grid(items,'ongoing')}</section>`);
+    const items=(d.data||[]).map(x=>({title:x.title,url:x.anime_url,image:x.image,episode:'Tersimpan'}));
+    setView(gen,`<section class="section">${head('Daftar Saya',`${items.length} judul tersimpan`)}${grid(items,'ongoing')}</section>`);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
   }
@@ -257,7 +308,7 @@ async function loadHistory(){
         <strong>${esc(x.title)}</strong>
         <small>${esc(x.episode||'Episode')} &middot; ${formatTime(x.position_seconds)}${x.duration_seconds?' / '+formatTime(x.duration_seconds):''}</small>
       </div>
-      <button class="btn btn-primary" data-url="${esc(x.episode_url)}" onclick="loadEpisode(this.dataset.url)">Lanjut Tonton</button>
+      <button class="btn btn-primary" data-url="${esc(x.episode_url)}" onclick="loadEpisode(this.dataset.url)">${playIconSvg}<span>Lanjut</span></button>
     </article>`).join('');
     setView(gen,`<section class="section">
       <div class="section-head">
@@ -290,8 +341,12 @@ function img(src,title){
   return `<img src="${esc(u)}" alt="${esc(title||'')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${fallback}'">`;
 }
 
+function cleanTitle(s){
+  return String(s||'').replace(/\s*(Subtitle Indonesia|Sub\s*Indo)\s*$/i,'').trim();
+}
+
 function head(title,sub='',more=''){
-  return `<div class="section-head"><h2>${title}</h2>${sub?`<p>${sub}</p>`:''}${more?`<a href="#" onclick="${more};return false">Lihat semua &rarr;</a>`:''}</div>`;
+  return `<div class="section-head"><h2>${title}</h2>${sub?`<p>${sub}</p>`:''}${more?`<a href="#" onclick="${more};return false">Semua &#8250;</a>`:''}</div>`;
 }
 
 function cardMeta(a,type){
@@ -302,12 +357,13 @@ function cardMeta(a,type){
   return parts.length?esc(parts.join(' · ')):`<span class="rating">&#9733; ${esc(a.rating||a.info||'—')}</span>`;
 }
 
-function card(a,type='ongoing',kind='otakudesu'){
+function card(a,type='ongoing',kind='otakudesu',rankNum=0){
   const badge=type==='complete'?(a.episodes||a.info||'Complete'):(a.episode||a.info||'Ongoing');
-  return `<article class="card" data-url="${esc(a.url||'')}" data-kind="${esc(kind)}" data-slug="${esc(a.slug||'')}" onclick="cardGo(this)">
-    <div class="poster">${img(a.image,a.title)}<span class="poster-badge">${esc(badge)}</span></div>
+  const title=cleanTitle(a.title);
+  return `<article class="card${rankNum?' rank-card':''}" data-url="${esc(a.url||'')}" data-kind="${esc(kind)}" data-slug="${esc(a.slug||'')}" onclick="cardGo(this)">
+    <div class="poster">${img(a.image,title)}<span class="poster-badge">${esc(badge)}</span>${rankNum?`<span class="rank-badge">TOP ${rankNum}</span>`:''}</div>
     <div class="card-body">
-      <div class="card-title">${esc(a.title)}</div>
+      <div class="card-title">${esc(title)}</div>
       <div class="meta">${cardMeta(a,type)}</div>
     </div>
   </article>`;
@@ -321,6 +377,10 @@ function cardGo(el){
   loadDetail(el.dataset.url);
 }
 
+function rail(items,type,kind='otakudesu',withRank=false){
+  return items?.length?`<div class="rail">${items.map((a,idx)=>card(a,type,kind,withRank&&idx<5?idx+1:0)).join('')}</div>`:'<div class="empty">Belum ada anime untuk ditampilkan.</div>';
+}
+
 function grid(items,type,kind='otakudesu'){
   return items?.length?`<div class="grid">${items.map(a=>card(a,type,kind)).join('')}</div>`:'<div class="empty">Belum ada anime untuk ditampilkan.</div>';
 }
@@ -331,22 +391,31 @@ async function loadHome(){
   try{
     const [o,c]=await Promise.all([api('/ongoing?page=1'),api('/complete?page=1')]);
     const hero=o.data&&o.data[0];
+    const ongoingList=o.data||[];
+    const completeList=c.data||[];
+    const railOngoing=(ongoingList.length>1?ongoingList.slice(1,13):ongoingList.slice(0,12));
     setView(gen,`
       ${hero?`<section class="hero">
         <div class="hero-body">
-          <span class="hero-kicker">Rilis Minggu Ini &middot; ${esc(hero.episode||'Ongoing')}</span>
-          <h1>${esc(hero.title||'Streaming anime favoritmu')}</h1>
+          <span class="hero-kicker">Unggulan Hari Ini</span>
+          <h1>${esc(cleanTitle(hero.title||'Streaming anime favoritmu'))}</h1>
+          <div class="hero-tags">
+            <span class="tag-box">HD</span>
+            <span class="tag-box">SUB ID</span>
+            <span>${esc(hero.episode||'Ongoing')}${hero.day?` &middot; ${esc(hero.day)}`:''}</span>
+          </div>
           <p class="hero-copy">Streaming anime subtitle Indonesia dari katalog OtakuDesu, Samehadaku, dan Anibiplay dalam satu antarmuka bersih tanpa gangguan.</p>
           <div class="hero-actions">
-            <button class="btn btn-primary" data-url="${esc(hero.url||'')}" onclick="loadDetail(this.dataset.url)">Tonton Sekarang</button>
-            <button class="btn btn-secondary" onclick="navClick('samehadaku',loadSamehadakuHome)">Mirror Samehadaku</button>
-            <button class="btn btn-secondary" onclick="navClick('anibi',loadAnibi)">Jadwal Rilis</button>
+            <button class="btn btn-primary" data-url="${esc(hero.url||'')}" onclick="loadDetail(this.dataset.url)">${playIconSvg}<span>Putar</span></button>
+            <button class="btn btn-secondary" data-url="${esc(hero.url||'')}" data-title="${esc(cleanTitle(hero.title||'Anime'))}" data-image="${esc(hero.image||'')}" onclick="addBookmark(this)">+ Daftar Saya</button>
+            <button class="btn btn-secondary btn-hide-mobile" onclick="navClick('samehadaku',loadSamehadakuHome)">Mirror Samehadaku</button>
           </div>
         </div>
         ${hero.image?`<div class="hero-media">${img(hero.image,hero.title)}</div>`:''}
       </section>`:''}
-      <section class="section">${head('Ongoing Anime','Episode terbaru setiap minggu',"navClick('ongoing',()=>loadOngoing(1))")}${grid(o.data,'ongoing')}</section>
-      <section class="section">${head('Complete Anime','Serial tamat siap maraton',"navClick('complete',()=>loadComplete(1))")}${grid(c.data,'complete')}</section>`);
+      <section class="section">${head('Top 10 & Sedang Tayang','Episode terbaru setiap minggu',"navClick('ongoing',()=>loadOngoing(1))")}${rail(railOngoing,'ongoing','otakudesu',true)}</section>
+      <section class="section">${head('Serial Tamat Siap Maraton','Tonton full episode sampai selesai',"navClick('complete',()=>loadComplete(1))")}${rail(completeList.slice(0,12),'complete','otakudesu',false)}</section>
+      <section class="section">${head('Rilisan Terbaru Minggu Ini','Katalog lengkap ongoing',"navClick('ongoing',()=>loadOngoing(1))")}${grid(ongoingList.slice(0,12),'ongoing')}</section>`);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
   }
@@ -410,20 +479,21 @@ async function loadGenre(slug,page=1){
 
 function searchGo(){
   const s=document.getElementById('searchSource');
-  const v=s?s.value:'otakudesu';
+  const v=s?s.value:activeSearchSource;
+  syncSearchSource(v);
   setActiveNav('');
   if(v==='samehadaku')return shSearch();
   if(v==='anibi')return anibiSearch();
   return doSearch();
 }
 
-async function doSearch(){
-  const q=document.getElementById('searchInput').value.trim();
+async function doSearch(forcedQ){
+  const q=(forcedQ??document.getElementById('searchInput').value).trim();
   if(!q)return;
   const gen=view('doSearch',[q]);
   try{
     const d=await api(`/search?q=${encodeURIComponent(q)}`);
-    setView(gen,`<section class="section">${head(`Hasil Pencarian "${esc(q)}"`,`${d.count||0} judul ditemukan di OtakuDesu`)}${d.data?.length?`<div class="grid">${d.data.map(a=>card(a,a.status==='Completed'?'complete':'ongoing')).join('')}</div>`:'<div class="empty">Tidak ada judul yang cocok.</div>'}</section>`);
+    setView(gen,`<section class="section">${head(`Hasil "${esc(q)}"`,`${d.count||0} judul di OtakuDesu`)}${d.data?.length?`<div class="grid">${d.data.map(a=>card(a,a.status==='Completed'?'complete':'ongoing')).join('')}</div>`:'<div class="empty">Tidak ada judul yang cocok.</div>'}</section>`);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
   }
@@ -456,9 +526,9 @@ async function loadDetail(url){
           <h1>${esc(i.Judul||'Untitled')}</h1>
           <div class="detail-sub">${esc(i.Japanese||'')}${i.Skor?` &middot; <span class="rating">&#9733; ${esc(i.Skor)}</span>`:''}</div>
           ${genres.length?`<div class="chips">${genres.map(g=>`<span class="chip">${esc(g)}</span>`).join('')}</div>`:''}
-          <div class="hero-actions">
-            ${e[0]?`<button class="btn btn-primary" data-url="${esc(e[0].url)}" onclick="loadEpisode(this.dataset.url)">Tonton Episode Terbaru</button>`:''}
-            <button class="btn btn-secondary" data-url="${esc(url)}" data-title="${esc(i.Judul||'Untitled')}" data-image="${esc(i.image||'')}" onclick="addBookmark(this)">+ Bookmark</button>
+          <div class="hero-actions" style="margin:12px 0">
+            ${e[0]?`<button class="btn btn-primary" data-url="${esc(e[0].url)}" onclick="loadEpisode(this.dataset.url)">${playIconSvg}<span>Putar Episode Terbaru</span></button>`:''}
+            <button class="btn btn-secondary" data-url="${esc(url)}" data-title="${esc(i.Judul||'Untitled')}" data-image="${esc(i.image||'')}" onclick="addBookmark(this)">+ Daftar Saya</button>
           </div>
           <dl class="info-table">
             ${row('Status',i.Status)}${row('Tipe',i.Tipe)}${row('Episode',i['Total Episode'])}${row('Durasi',i.Durasi)}${row('Studio',i.Studio)}${row('Produser',i.Produser)}${row('Rilis',i['Tanggal Rilis'])}
@@ -470,8 +540,11 @@ async function loadDetail(url){
         ${head(`Daftar Episode (${e.length})`)}
         <div class="episodes">${e.map(x=>`
           <div class="episode" data-url="${esc(x.url)}" onclick="loadEpisode(this.dataset.url)">
-            <b class="episode-num">${esc(x.num)}</b>
-            <span class="episode-title">${esc(String(x.title||'').replace(/Subtitle Indonesia/i,'').trim())}</span>
+            <span class="episode-play">${playIconSvg}</span>
+            <span class="episode-info">
+              <span class="episode-num">EPISODE ${esc(x.num)}</span>
+              <span class="episode-title">${esc(String(x.title||'').replace(/Subtitle Indonesia/i,'').trim())}</span>
+            </span>
             <small class="episode-date">${esc(x.date||'')}</small>
           </div>`).join('')}</div>
       </section>`);
@@ -483,6 +556,7 @@ async function loadDetail(url){
 
 async function loadEpisode(url){
   if(!url)return;
+  setActiveNav('home');
   const gen=view('loadEpisode',[url]);
   window.currentWatch={episode_url:url,anime_url:currentAnimeUrl,title:url,episode:''};
   try{
@@ -494,21 +568,24 @@ async function loadEpisode(url){
     window.currentWatch.episode=e.title||'';
     saveHistory({...window.currentWatch,position_seconds:0,duration_seconds:null});
     setView(gen,`
-      <section class="section">
-        <div class="section-head">
-          <h2>${esc(String(e.title||'').replace(/Subtitle Indonesia/i,'').trim())}</h2>
-          <a href="#" data-url="${esc(url)}" onclick="loadSamehadaku(this.dataset.url);return false">Coba Mirror Samehadaku &rarr;</a>
-        </div>
+      <div class="player-wrap">
         <div class="player">
           <div class="player-frame" id="player">${e.default_embed?`<iframe src="${esc(e.default_embed)}" allowfullscreen referrerpolicy="no-referrer"></iframe>`:'<div class="empty">Pilih mirror streaming di bawah.</div>'}</div>
-          <div class="mirrors">${Object.entries(m).filter(([,ls])=>ls&&ls.length).map(([q,ls])=>`<div class="quality"><span>${esc(q)}</span>${sortMirrors(ls).map(x=>`<button class="mirror" data-id="${esc(x.post_id)}" data-i="${esc(x.mirror_index)}" data-q="${esc(x.quality)}" onclick="loadMirror(this)">${esc(x.name)}</button>`).join('')}</div>`).join('')}</div>
+          <div class="mirrors">${Object.entries(m).filter(([,ls])=>ls&&ls.length).map(([q,ls],qi)=>`<div class="quality"><span>${esc(q)}</span>${sortMirrors(ls).map((x,mi)=>`<button class="mirror${qi===0&&mi===0&&e.default_embed?' active':''}" data-id="${esc(x.post_id)}" data-i="${esc(x.mirror_index)}" data-q="${esc(x.quality)}" onclick="loadMirror(this)">${esc(x.name)}</button>`).join('')}</div>`).join('')}</div>
         </div>
-        <div class="episode-nav">
-          <button class="page-btn" ${n.prev?`data-url="${esc(n.prev)}" onclick="loadEpisode(this.dataset.url)"`:'disabled'}>&larr; Sebelumnya</button>
-          <button class="btn btn-secondary" data-url="${esc(n.all_episodes||currentAnimeUrl)}" onclick="loadDetail(this.dataset.url)">Semua Episode</button>
-          <button class="page-btn" ${n.next?`data-url="${esc(n.next)}" onclick="loadEpisode(this.dataset.url)"`:'disabled'}>Berikutnya &rarr;</button>
+      </div>
+      <div class="episode-meta-bar">
+        <div>
+          <h1>${esc(String(e.title||'').replace(/Subtitle Indonesia/i,'').trim())}</h1>
+          <p>Pilih kualitas atau server lain jika pemutaran lambat</p>
         </div>
-      </section>
+        <button class="btn btn-secondary" data-url="${esc(url)}" onclick="loadSamehadaku(this.dataset.url)">Mirror Samehadaku</button>
+      </div>
+      <div class="episode-nav">
+        <button class="page-btn" ${n.prev?`data-url="${esc(n.prev)}" onclick="loadEpisode(this.dataset.url)"`:'disabled'}>&larr; Ep Sblm</button>
+        <button class="btn btn-secondary" data-url="${esc(n.all_episodes||currentAnimeUrl)}" onclick="loadDetail(this.dataset.url)">Semua Ep</button>
+        <button class="page-btn" ${n.next?`data-url="${esc(n.next)}" onclick="loadEpisode(this.dataset.url)"`:'disabled'}>Ep Lanjut &rarr;</button>
+      </div>
       ${downloadBlock(e.downloads)}`);
     scrollTo(0,0);
   }catch(e){
@@ -546,7 +623,7 @@ async function loadSamehadakuHome(){
   try{
     const [l,c]=await Promise.all([api('/samehadaku/latest'),api('/samehadaku/catalog')]);
     setView(gen,`
-      <section class="section">${head('Samehadaku · Episode Terbaru',`${l.count||0} judul · tema ${esc(l.theme||'li')}`)}${grid(l.data,'ongoing','samehadaku-ep')}</section>
+      <section class="section">${head('Samehadaku · Episode Terbaru',`${l.count||0} judul · tema ${esc(l.theme||'li')}`)}${rail((l.data||[]).slice(0,12),'ongoing','samehadaku-ep',true)}</section>
       <section class="section">${head('Samehadaku · Katalog Anime')}${grid(c.data,'complete','samehadaku')}</section>`);
     scrollTo(0,0);
   }catch(e){
@@ -554,8 +631,8 @@ async function loadSamehadakuHome(){
   }
 }
 
-async function shSearch(){
-  const q=document.getElementById('searchInput').value.trim();
+async function shSearch(forcedQ){
+  const q=(forcedQ??document.getElementById('searchInput').value).trim();
   if(!q)return;
   const gen=view('shSearch',[q]);
   try{
@@ -579,6 +656,7 @@ async function loadSamehadakuAnime(url){
           <span class="hero-kicker">Samehadaku · ${esc(d.theme||'li')}</span>
           <h1>${esc(i.title||'Untitled')}</h1>
           <div class="chips">${(i.genres||[]).map(g=>`<span class="chip">${esc(g)}</span>`).join('')}</div>
+          ${eps[0]?`<div class="hero-actions" style="margin:12px 0"><button class="btn btn-primary" data-url="${esc(eps[0].url)}" onclick="loadSamehadakuEpisode(this.dataset.url)">${playIconSvg}<span>Putar Episode Terbaru</span></button></div>`:''}
           <dl class="info-table">
             ${row('Status',i.status)}${row('Tipe',i.type)}${row('Episode',i.episodes)}${row('Durasi',i.duration)}${row('Studio',i.studio)}${row('Rilis',i.released)}${row('Skor',i.score)}
           </dl>
@@ -589,8 +667,11 @@ async function loadSamehadakuAnime(url){
         ${head(`Daftar Episode (${eps.length})`)}
         <div class="episodes">${eps.map(x=>`
           <div class="episode" data-url="${esc(x.url)}" onclick="loadSamehadakuEpisode(this.dataset.url)">
-            <b class="episode-num">${esc(x.num)}</b>
-            <span class="episode-title">${esc(String(x.title||'').replace(/Subtitle Indonesia/i,'').trim())}</span>
+            <span class="episode-play">${playIconSvg}</span>
+            <span class="episode-info">
+              <span class="episode-num">EPISODE ${esc(x.num)}</span>
+              <span class="episode-title">${esc(String(x.title||'').replace(/Subtitle Indonesia/i,'').trim())}</span>
+            </span>
             <small class="episode-date">${esc(x.date||'')}</small>
           </div>`).join('')}</div>
       </section>`);
@@ -605,19 +686,20 @@ async function loadSamehadakuEpisode(url){
   try{
     const d=await api(`/samehadaku/episode?url=${encodeURIComponent(url)}`);
     setView(gen,episodeShell(d.data,'samehadaku'));
+    scrollTo(0,0);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
   }
 }
 
-function mirrorBtn(x){
-  return `<button class="mirror" data-url="${esc(x.url||x.embed_url||'')}" data-id="${esc(x.post_id||'')}" data-i="${esc(x.mirror_index??'')}" data-q="${esc(x.quality||'')}" onclick="playMirror(this)">${esc(x.name||'Mirror')}</button>`;
+function mirrorBtn(x,isActive=false){
+  return `<button class="mirror${isActive?' active':''}" data-url="${esc(x.url||x.embed_url||'')}" data-id="${esc(x.post_id||'')}" data-i="${esc(x.mirror_index??'')}" data-q="${esc(x.quality||'')}" onclick="playMirror(this)">${esc(x.name||'Mirror')}</button>`;
 }
 
 function mirrorGroups(m){
   if(!m)return '';
-  if(Array.isArray(m))return m.length?`<div class="quality"><span>Streaming</span>${sortMirrors(m).map(mirrorBtn).join('')}</div>`:'';
-  return Object.entries(m).filter(([,ls])=>Array.isArray(ls)&&ls.length).map(([q,ls])=>`<div class="quality"><span>${esc(q)}</span>${sortMirrors(ls).map(mirrorBtn).join('')}</div>`).join('');
+  if(Array.isArray(m))return m.length?`<div class="quality"><span>Server</span>${sortMirrors(m).map((x,i)=>mirrorBtn(x,i===0)).join('')}</div>`:'';
+  return Object.entries(m).filter(([,ls])=>Array.isArray(ls)&&ls.length).map(([q,ls],qi)=>`<div class="quality"><span>${esc(q)}</span>${sortMirrors(ls).map((x,mi)=>mirrorBtn(x,qi===0&&mi===0)).join('')}</div>`).join('');
 }
 
 function downloadBlock(list){
@@ -640,22 +722,25 @@ function episodeShell(e,source){
   const back=source==='samehadaku'?'loadSamehadakuHome':'loadHome';
   window.currentWatch={episode_url:e.url||'',anime_url:e.anime_url||currentAnimeUrl,title:e.title||'',episode:String(e.matched_episode||e.title||''),source};
   saveHistory({...window.currentWatch,position_seconds:0,duration_seconds:null});
-  return `<section class="section">
-    <div class="section-head">
-      <h2>${esc(String(e.title||'').replace(/Subtitle Indonesia/i,'').trim())}</h2>
-      <p>${source==='samehadaku'?`Samehadaku · tema ${esc(e.theme||'li')}${e.matched_episode?` · episode ${esc(e.matched_episode)}`:''}`:'OtakuDesu'}</p>
+  return `
+    <div class="player-wrap">
+      <div class="player">
+        <div class="player-frame" id="player">${embed?`<iframe src="${esc(embed)}" allowfullscreen referrerpolicy="no-referrer"></iframe>`:'<div class="empty">Pilih mirror streaming di bawah.</div>'}</div>
+        <div class="mirrors">${mirrorGroups(m)}</div>
+      </div>
     </div>
-    <div class="player">
-      <div class="player-frame" id="player">${embed?`<iframe src="${esc(embed)}" allowfullscreen referrerpolicy="no-referrer"></iframe>`:'<div class="empty">Pilih mirror streaming di bawah.</div>'}</div>
-      <div class="mirrors">${mirrorGroups(m)}</div>
+    <div class="episode-meta-bar">
+      <div>
+        <h1>${esc(String(e.title||'').replace(/Subtitle Indonesia/i,'').trim())}</h1>
+        <p>${source==='samehadaku'?`Samehadaku · tema ${esc(e.theme||'li')}${e.matched_episode?` · episode ${esc(e.matched_episode)}`:''}`:'OtakuDesu'}</p>
+      </div>
     </div>
     <div class="episode-nav">
-      <button class="page-btn" ${n.prev?`data-url="${esc(n.prev)}" onclick="${goto}(this.dataset.url)"`:'disabled'}>&larr; Sebelumnya</button>
-      <button class="btn btn-secondary" onclick="${back}()">${source==='samehadaku'?'Katalog Samehadaku':'Beranda'}</button>
-      <button class="page-btn" ${n.next?`data-url="${esc(n.next)}" onclick="${goto}(this.dataset.url)"`:'disabled'}>Berikutnya &rarr;</button>
+      <button class="page-btn" ${n.prev?`data-url="${esc(n.prev)}" onclick="${goto}(this.dataset.url)"`:'disabled'}>&larr; Ep Sblm</button>
+      <button class="btn btn-secondary" onclick="${back}()">${source==='samehadaku'?'Katalog':'Beranda'}</button>
+      <button class="page-btn" ${n.next?`data-url="${esc(n.next)}" onclick="${goto}(this.dataset.url)"`:'disabled'}>Ep Lanjut &rarr;</button>
     </div>
-  </section>
-  ${downloadBlock(e.downloads)}`;
+    ${downloadBlock(e.downloads)}`;
 }
 
 async function playMirror(btn){
@@ -677,21 +762,56 @@ async function playMirror(btn){
   }
 }
 
+function anibiScheduleCard(a){
+  return `<article class="card" data-kind="anibi" data-slug="${esc(a.slug||a.id)}" onclick="loadAnibiDetail(this.dataset.slug)">
+    <div class="poster">${img(a.image,a.title)}<span class="poster-badge">Ep ${esc(a.last_episode?.label||'—')}</span></div>
+    <div class="card-body">
+      <div class="card-title">${esc(a.title)}</div>
+      <div class="meta">${a.airing_today?'Tayang hari ini':esc(a.day||'')}</div>
+    </div>
+  </article>`;
+}
+
+function selectScheduleDay(dayKey){
+  document.querySelectorAll('.day-tab').forEach(b=>{
+    b.classList.toggle('active',b.dataset.day===dayKey);
+  });
+  const wrap=document.getElementById('scheduleDayWrap');
+  if(!wrap)return;
+  if(dayKey==='all'){
+    const flat=scheduleDaysCache.flatMap(([,list])=>(list||[]).slice(0,8));
+    wrap.innerHTML=flat.length?`<div class="grid">${flat.map(anibiScheduleCard).join('')}</div>`:'<div class="empty">Belum ada jadwal.</div>';
+    return;
+  }
+  const found=scheduleDaysCache.find(([d])=>d===dayKey);
+  const list=found?(found[1]||[]):[];
+  wrap.innerHTML=list.length?`<div class="grid">${list.map(anibiScheduleCard).join('')}</div>`:'<div class="empty">Tidak ada jadwal tayang pada hari ini.</div>';
+}
+
 async function loadAnibi(){
   setActiveNav('anibi');
   const gen=view('loadAnibi');
   try{
     const s=await api('/anibi/schedule');
-    const days=Object.entries(s.data||{});
-    setView(gen,`<section class="section">${head('Anibiplay · Jadwal Rilis Mingguan','Jadwal rilis per hari dari Kisame Cloud')}<div class="schedule">${days.map(([day,list])=>`<div class="schedule-day"><h3>${esc(day)}</h3><div class="grid">${(list||[]).slice(0,12).map(a=>`<article class="card" data-kind="anibi" data-slug="${esc(a.slug||a.id)}" onclick="loadAnibiDetail(this.dataset.slug)"><div class="poster">${img(a.image,a.title)}<span class="poster-badge">Ep ${esc(a.last_episode?.label||'—')}</span></div><div class="card-body"><div class="card-title">${esc(a.title)}</div><div class="meta">${a.airing_today?'Tayang hari ini':esc(a.day||'')}</div></div></article>`).join('')}</div></div>`).join('')}</div></section>`);
+    scheduleDaysCache=Object.entries(s.data||{});
+    const firstDay=scheduleDaysCache[0]?.[0]||'all';
+    setView(gen,`<section class="section">
+      ${head('Jadwal Rilis Mingguan','Pilih hari tayang dari Anibiplay')}
+      <div class="day-tabs">
+        ${scheduleDaysCache.map(([day],idx)=>`<button class="day-tab${idx===0?' active':''}" data-day="${esc(day)}" onclick="selectScheduleDay(this.dataset.day)">${esc(day)}</button>`).join('')}
+        <button class="day-tab" data-day="all" onclick="selectScheduleDay('all')">Semua</button>
+      </div>
+      <div id="scheduleDayWrap"></div>
+    </section>`);
+    selectScheduleDay(firstDay);
     scrollTo(0,0);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
   }
 }
 
-async function anibiSearch(){
-  const q=document.getElementById('searchInput').value.trim();
+async function anibiSearch(forcedQ){
+  const q=(forcedQ??document.getElementById('searchInput').value).trim();
   if(!q)return;
   const gen=view('anibiSearch',[q]);
   try{
@@ -721,7 +841,7 @@ async function loadAnibiDetail(slug){
       </section>
       <section class="section">
         ${head('Daftar Episode')}
-        <div class="episodes">${(x.episodes_list||x.episode_list||[]).map(e=>`<div class="episode"><b class="episode-num">${esc(e.num||e.label||'')}</b><span class="episode-title">${esc(e.title||'')}</span></div>`).join('')||'<div class="empty">Detail episode belum tersedia dari sumber ini.</div>'}</div>
+        <div class="episodes">${(x.episodes_list||x.episode_list||[]).map(e=>`<div class="episode"><span class="episode-play">${playIconSvg}</span><span class="episode-info"><span class="episode-num">EPISODE ${esc(e.num||e.label||'')}</span><span class="episode-title">${esc(e.title||'')}</span></span></div>`).join('')||'<div class="empty">Detail episode belum tersedia dari sumber ini.</div>'}</div>
       </section>`);
     scrollTo(0,0);
   }catch(e){
