@@ -183,18 +183,13 @@ function toggleTheme(){
 
 function updateAccount(){
   const el=document.getElementById('account-label');
-  if(el)el.textContent=authToken?'Akun':'Login';
+  const name=localStorage.getItem('nanostream-user')||'';
+  if(el)el.textContent=name||(authToken?'Akun':'Login');
 }
 
 function accountAction(){
   closeSearchSheet();
-  if(authToken){
-    setActiveNav('history');
-    loadHistory();
-  }else{
-    setActiveNav('');
-    showAuth();
-  }
+  loadAccount();
 }
 
 function authHeaders(){
@@ -210,6 +205,7 @@ async function authApi(path,method='GET',body){
   if(r.status===401){
     authToken='';
     localStorage.removeItem('nanostream-token');
+    localStorage.removeItem('nanostream-user');
     updateAccount();
     showAuth();
     throw Error('Sesi berakhir, silakan login ulang');
@@ -219,36 +215,130 @@ async function authApi(path,method='GET',body){
   return d;
 }
 
-function authCard(){
+function authCard(mode='login'){
+  const reg=mode==='register';
   return `<section class="auth-shell">
     <div class="auth-art">
-      <div>
+      <div class="auth-art-top">
         <span class="auth-kicker">NANOSTREAM ACCOUNT</span>
         <h1>Simpan daftar tontonan di <em>NanoStream</em>.</h1>
         <p>Sinkronkan Daftar Saya dan lanjutkan episode terakhir lintas perangkat.</p>
       </div>
-      <div class="auth-points">
-        <span>Daftar Saya</span>
-        <span>Riwayat Episode</span>
-        <span>Sinkronisasi Cloud</span>
-      </div>
+      <ul class="auth-points">
+        <li><span class="auth-point-icon">${playIconSvg}</span><span>Daftar Saya tersimpan otomatis</span></li>
+        <li><span class="auth-point-icon">${playIconSvg}</span><span>Riwayat episode dan posisi tonton</span></li>
+        <li><span class="auth-point-icon">${playIconSvg}</span><span>Sinkronisasi cloud antar perangkat</span></li>
+      </ul>
     </div>
     <div class="auth-form">
-      <span class="auth-form-kicker">AUTENTIKASI</span>
-      <h2>Masuk ke NanoStream</h2>
-      <p class="auth-lead">Masukkan username dan password akunmu.</p>
-      <label>Username<input id="authUser" autocomplete="username" placeholder="contoh: nanofan"></label>
-      <label>Password<input id="authPass" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter"></label>
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab${!reg?' active':''}" onclick="switchAuthMode('login')" role="tab">Masuk</button>
+        <button class="auth-tab${reg?' active':''}" onclick="switchAuthMode('register')" role="tab">Daftar</button>
+      </div>
+      <span class="auth-form-kicker">${reg?'BUAT AKUN':'SELAMAT DATANG KEMBALI'}</span>
+      <h2>${reg?'Daftar akun NanoStream':'Masuk ke NanoStream'}</h2>
+      <p class="auth-lead">${reg?'Buat akun untuk menyimpan koleksi dan riwayat tontonan.':'Masukkan username dan password akunmu.'}</p>
+      <label>Username<input id="authUser" autocomplete="username" placeholder="contoh: nanofan" value="${esc(localStorage.getItem('nanostream-user')||'')}"></label>
+      <label>Password<input id="authPass" type="password" autocomplete="${reg?'new-password':'current-password'}" placeholder="Minimal 6 karakter"></label>
       <p id="authMsg" class="auth-msg"></p>
-      <button class="btn btn-primary auth-submit" onclick="loginUser()"><span>Masuk Sekarang</span><span>&rarr;</span></button>
-      <button class="auth-register" onclick="registerUser()">Belum punya akun? <strong>Daftar akun baru</strong></button>
+      <button class="btn btn-primary auth-submit" onclick="${reg?'registerUser()':'loginUser()'}"><span>${reg?'Buat Akun':'Masuk Sekarang'}</span><span>&rarr;</span></button>
+      <p class="auth-switch">${reg?'Sudah punya akun?':'Belum punya akun?'} <button class="auth-link" onclick="switchAuthMode('${reg?'login':'register'}')">${reg?'Masuk di sini':'Daftar akun baru'}</button></p>
     </div>
   </section>`;
 }
 
+let authMode='login';
+
+function switchAuthMode(mode){
+  authMode=mode;
+  show(authCard(mode));
+}
+
 function showAuth(){
   setActiveNav('');
-  show(authCard());
+  show(authCard(authMode));
+}
+
+function avatarInitial(name){
+  const s=(name||'?').trim();
+  return (s[0]||'?').toUpperCase();
+}
+
+function formatDuration(sec){
+  sec=Number(sec||0);
+  if(sec<60)return `${sec} detik`;
+  const h=Math.floor(sec/3600);
+  const m=Math.floor((sec%3600)/60);
+  if(!h)return `${m} menit`;
+  return `${h} jam ${m} menit`;
+}
+
+async function loadAccount(){
+  if(!authToken){
+    setActiveNav('');
+    showAuth();
+    return;
+  }
+  setActiveNav('account');
+  const gen=view('loadAccount');
+  try{
+    const [p,b,h]=await Promise.all([authApi('/profile'),authApi('/bookmarks'),authApi('/history')]);
+    const d=p.data||{};
+    const name=d.username||localStorage.getItem('nanostream-user')||'Pengguna';
+    localStorage.setItem('nanostream-user',name);
+    updateAccount();
+    const joined=d.joined_at?String(d.joined_at).slice(0,10):'-';
+    const total=d.total_watch_seconds||0;
+    setView(gen,`<section class="acc-page">
+      <div class="acc-hero">
+        <div class="acc-avatar">${esc(avatarInitial(name))}</div>
+        <div class="acc-hero-info">
+          <span class="acc-kicker">PROFIL PENONTON</span>
+          <h1>${esc(name)}</h1>
+          <p>Bergabung sejak ${esc(joined)}</p>
+        </div>
+        <div class="acc-hero-actions">
+          <button class="btn btn-secondary" onclick="logoutNow()">Keluar</button>
+        </div>
+      </div>
+      <div class="acc-stats">
+        <div class="acc-stat"><span class="acc-stat-value">${Number(d.bookmarks_count||0)}</span><span class="acc-stat-label">Disimpan</span></div>
+        <div class="acc-stat"><span class="acc-stat-value">${Number(d.history_count||0)}</span><span class="acc-stat-label">Riwayat</span></div>
+        <div class="acc-stat"><span class="acc-stat-value">${esc(formatDuration(total))}</span><span class="acc-stat-label">Waktu tonton</span></div>
+      </div>
+      <div class="acc-tabs" role="tablist">
+        <button class="acc-tab active" onclick="accTab(this,'acc-collections')">Koleksi</button>
+        <button class="acc-tab" onclick="accTab(this,'acc-history')">Riwayat</button>
+      </div>
+      <div id="acc-collections" class="acc-panel">${accCollections((b.data||[]))}</div>
+      <div id="acc-history" class="acc-panel hidden">${accHistoryList((h.data||[]))}</div>
+    </section>`);
+  }catch(e){
+    setView(gen,`<div class="empty">${esc(e.message)}</div>`);
+  }
+}
+
+function accTab(btn,id){
+  document.querySelectorAll('.acc-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.acc-panel').forEach(p=>p.classList.add('hidden'));
+  document.getElementById(id)?.classList.remove('hidden');
+}
+
+function accCollections(items){
+  if(!items.length)return '<div class="empty">Belum ada judul tersimpan. Tekan tombol simpan pada anime untuk menambahkannya.</div>';
+  return `<div class="grid">${items.map(x=>card({title:x.title,url:x.anime_url,image:x.image,type:'Tersimpan'},'ongoing','otakudesu')).join('')}</div>`;
+}
+
+function accHistoryList(items){
+  if(!items.length)return '<div class="empty">Belum ada riwayat tontonan.</div>';
+  return `<div class="history-list">${items.map(x=>`<article class="history-item">
+      <div class="history-item-main">
+        <strong>${esc(x.title)}</strong>
+        <small>${esc(x.episode||'Episode')} &middot; ${formatTime(x.position_seconds)}${x.duration_seconds?' / '+formatTime(x.duration_seconds):''}</small>
+      </div>
+      <button class="btn btn-primary" data-url="${esc(x.episode_url)}" onclick="loadEpisode(this.dataset.url)">${playIconSvg}<span>Lanjut</span></button>
+    </article>`).join('')}</div>`;
 }
 
 async function loginUser(){
@@ -259,9 +349,10 @@ async function loginUser(){
     });
     authToken=d.token;
     localStorage.setItem('nanostream-token',authToken);
+    localStorage.setItem('nanostream-user',document.getElementById('authUser').value.trim());
     updateAccount();
     showToast('Berhasil masuk');
-    loadHome();
+    loadAccount();
   }catch(e){
     document.getElementById('authMsg').textContent=e.message;
   }
@@ -275,9 +366,10 @@ async function registerUser(){
     });
     authToken=d.token;
     localStorage.setItem('nanostream-token',authToken);
+    localStorage.setItem('nanostream-user',document.getElementById('authUser').value.trim());
     updateAccount();
     showToast('Akun berhasil dibuat');
-    loadHome();
+    loadAccount();
   }catch(e){
     document.getElementById('authMsg').textContent=e.message;
   }
@@ -286,6 +378,7 @@ async function registerUser(){
 function logoutNow(){
   authToken='';
   localStorage.removeItem('nanostream-token');
+  localStorage.removeItem('nanostream-user');
   updateAccount();
   showToast('Berhasil keluar dari akun');
   loadHome();
