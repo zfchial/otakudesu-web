@@ -2535,6 +2535,32 @@ footer {
   margin: 12px 0 18px;
 }
 
+.comic-genres-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.comic-genres-wrap .comic-genres {
+  margin: 12px 0 18px;
+}
+
+.comic-genres .hidden-chip {
+  display: none;
+}
+
+.comic-genres.expanded .hidden-chip {
+  display: inline-flex;
+}
+
+.comic-genre-more {
+  background: transparent;
+  border-style: dashed;
+  white-space: nowrap;
+  margin: 12px 0 18px;
+}
+
 .comic-genre {
   font-family: inherit;
   font-size: 12px;

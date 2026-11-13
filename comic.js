@@ -21,8 +21,13 @@ function comicCard(c){
   </article>`;
 }
 
-function comicGenreChips(list,active){
-  return `<div class="comic-genres">${(list||[]).map(g=>`<button class="comic-genre${g.slug===active?' active':''}" data-slug="${esc(g.slug)}" onclick="loadComicGenre(this.dataset.slug)">${esc(g.name)}</button>`).join('')}</div>`;
+function comicGenreChips(list,active,limit){
+  const arr=list||[];
+  limit=limit||14;
+  const rest=arr.length-limit;
+  const chips=arr.map((g,i)=>`<button class="comic-genre${g.slug===active?' active':''}${i>=limit?' hidden-chip':''}" data-slug="${esc(g.slug)}" onclick="loadComicGenre(this.dataset.slug)">${esc(g.name)}</button>`).join('');
+  const more=rest>0?`<button class="comic-genre comic-genre-more" onclick="var c=this.previousElementSibling;c.classList.add('expanded');this.remove()">+${rest} lainnya</button>`:'';
+  return `<div class="comic-genres-wrap"><div class="comic-genres">${chips}</div>${more}</div>`;
 }
 
 async function loadComicGenre(slug,page){
@@ -61,7 +66,7 @@ async function loadComicGenres(){
     const genres=(gd.data&&gd.data.genres)||[];
     setView(gen,`<section class="section">
       ${head('Genre Komik',`${genres.length} genre tersedia`,'loadComicHome()')}
-      <div class="comic-genres">${genres.map(g=>`<button class="comic-genre" data-slug="${esc(g.slug)}" onclick="loadComicGenre(this.dataset.slug)">${esc(g.name)}</button>`).join('')}</div>
+      ${comicGenreChips(genres,null,60)}
     </section>`);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
@@ -82,7 +87,7 @@ async function loadComicHome(){
         <input id="comicSearchInput" type="search" placeholder="Cari judul komik..." onkeydown="if(event.key==='Enter')loadComicSearch()">
         <button class="btn btn-primary" onclick="loadComicSearch()">Cari Komik</button>
       </div>
-      ${genres.length?`<div class="section-head comic-genre-head"><h2>Genre</h2><a href="#" onclick="loadComicGenres();return false">Semua &#8250;</a></div><div class="comic-genres">${genres.map(g=>`<button class="comic-genre" data-slug="${esc(g.slug)}" onclick="loadComicGenre(this.dataset.slug)">${esc(g.name)}</button>`).join('')}</div>`:''}
+      ${genres.length?`<div class="section-head comic-genre-head"><h2>Genre</h2><a href="#" onclick="loadComicGenres();return false">Semua &#8250;</a></div>${comicGenreChips(genres,null,12)}`:''}
       ${items.length?`<div class="grid">${items.map(comicCard).join('')}</div>`:'<div class="empty">Katalog komik belum tersedia.</div>'}
     </section>`);
   }catch(e){
