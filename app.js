@@ -574,7 +574,8 @@ async function upgradePlayer(embedUrl){
     v.playsInline=true;
     v.preload='metadata';
     v.className='native-video';
-    v.src=m.media_url;
+    const proxied=`${API}/stream/proxy?url=${encodeURIComponent(m.media_url)}`;
+    v.src=proxied;
     frame.innerHTML='';
     frame.appendChild(v);
     nativePlayerActive=true;
