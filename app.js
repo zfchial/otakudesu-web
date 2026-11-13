@@ -862,6 +862,8 @@ async function loadEpisode(url){
     const e=d.data||{};
     const n=e.nav||{};
     const m=e.mirrors||{};
+    const mirrorCount=Object.values(m).reduce((a,l)=>a+(l&&l.length?l.length:0),0);
+    const playable=e.default_embed||mirrorCount>0;
     window.currentWatch.title=e.title||url;
     window.currentWatch.episode=e.title||'';
     resetWatch();
@@ -873,13 +875,14 @@ async function loadEpisode(url){
           <div class="mirrors">${Object.entries(m).filter(([,ls])=>ls&&ls.length).map(([q,ls],qi)=>`<div class="quality"><span>${esc(q)}</span>${sortMirrors(ls).map((x,mi)=>`<button class="mirror${qi===0&&mi===0&&e.default_embed?' active':''}" data-id="${esc(x.post_id)}" data-i="${esc(x.mirror_index)}" data-q="${esc(x.quality)}" onclick="loadMirror(this)">${esc(x.name)}</button>`).join('')}</div>`).join('')}</div>
         </div>
       </div>
-      <div class="episode-meta-bar">
+      ${!playable?`<div class="episode-meta-bar"><div><h1>Episode tidak tersedia</h1><p>Mirror streaming untuk episode ini belum aktif. Pilih episode lain dari daftar halaman anime.</p></div><button class="btn btn-secondary" data-url="${esc(n.all_episodes||currentAnimeUrl)}" onclick="loadDetail(this.dataset.url)">Lihat Daftar Episode</button></div>`:''}
+      ${playable?`<div class="episode-meta-bar">
         <div>
           <h1>${esc(String(e.title||'').replace(/Subtitle Indonesia/i,'').trim())}</h1>
           <p>Pilih kualitas atau server lain jika pemutaran lambat</p>
         </div>
         <button class="btn btn-secondary" data-url="${esc(url)}" onclick="loadSamehadaku(this.dataset.url)">Mirror Samehadaku</button>
-      </div>
+      </div>`:''}
       <div class="episode-nav">
         <button class="page-btn" ${n.prev?`data-url="${esc(n.prev)}" onclick="loadEpisode(this.dataset.url)"`:'disabled'}>&larr; Ep Sblm</button>
         <button class="btn btn-secondary" data-url="${esc(n.all_episodes||currentAnimeUrl)}" onclick="loadDetail(this.dataset.url)">Semua Ep</button>

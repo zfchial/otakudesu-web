@@ -150,6 +150,11 @@ button {
   display: flex;
   align-items: center;
   gap: 24px;
+  min-width: 0;
+}
+
+.nav-shell > * {
+  min-width: 0;
 }
 
 .brand {
@@ -200,6 +205,8 @@ button {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex: 0 1 auto;
+  overflow: hidden;
 }
 
 .main-nav a {
@@ -247,6 +254,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
 .mobile-pills,
@@ -265,6 +273,8 @@ button {
   border-radius: 999px;
   overflow: hidden;
   transition: border-color 0.2s ease, background 0.2s ease;
+  flex: 0 1 340px;
+  min-width: 0;
 }
 
 .search:focus-within {
@@ -293,6 +303,7 @@ button {
 .search input {
   width: 180px;
   min-width: 0;
+  flex: 1 1 auto;
   border: 0;
   outline: 0;
   background: transparent;
@@ -404,7 +415,7 @@ main {
 .hero {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 200px;
+  grid-template-columns: minmax(0, 1fr) 200px;
   gap: 28px;
   align-items: center;
   background: var(--surface);
@@ -413,6 +424,29 @@ main {
   padding: 26px 28px;
   overflow: hidden;
   animation: heroIn 0.6s var(--ease) both;
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    min-height: 360px;
+    padding: 32px 36px;
+    align-items: center;
+  }
+
+  .hero-body {
+    max-width: 760px;
+  }
+
+  .hero h1 {
+    font-size: clamp(28px, 3.2vw, 38px);
+    max-width: 700px;
+  }
+
+  .hero-copy {
+    font-size: 14.5px;
+    max-width: 620px;
+  }
 }
 
 @keyframes heroIn {
@@ -517,6 +551,14 @@ main {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+@media (min-width: 1024px) {
+  .hero-media {
+    width: 380px;
+    aspect-ratio: 4 / 5;
+    max-height: 420px;
+  }
 }
 
 .btn {
@@ -1773,6 +1815,46 @@ footer {
   padding: 5px 12px;
   font-size: 12px;
   font-weight: 600;
+}
+
+@media (max-width: 1400px) {
+  .main-nav a {
+    padding: 7px 9px;
+    font-size: 12.5px;
+  }
+
+  .nav-shell {
+    gap: 16px;
+  }
+
+  .search {
+    flex: 0 1 260px;
+  }
+
+  .search select {
+    padding: 0 7px;
+    max-width: 104px;
+    text-overflow: ellipsis;
+  }
+
+  .search input {
+    padding: 0 9px;
+    width: 130px;
+  }
+}
+
+@media (max-width: 1240px) {
+  .search {
+    flex: 0 1 200px;
+  }
+
+  .search select {
+    max-width: 88px;
+  }
+
+  .search input {
+    width: 96px;
+  }
 }
 
 @media (max-width: 1120px) {
