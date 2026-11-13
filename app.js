@@ -680,9 +680,9 @@ async function loadSamehadaku(url){
   const gen=view('loadSamehadaku',[url]);
   try{
     const d=await api(`/samehadaku-episode?url=${encodeURIComponent(url)}`);
-    setView(gen,episodeShell(d.data,'samehadaku'));
+    setView(gen,episodeShell(d.data,'samehadaku',url));
   }catch(err){
-    setView(gen,`<div class="empty">${esc(err.message)}</div>`);
+    setView(gen,`<div class="empty">${esc(err.message)}<div style="margin-top:14px"><button class="btn btn-secondary" data-url="${esc(url)}" onclick="loadEpisode(this.dataset.url)">Kembali ke OtakuDesu</button></div></div>`);
   }
 }
 
@@ -784,11 +784,12 @@ function downloadBlock(list){
   return `<section class="section">${head('Link Download')}<div class="downloads">${rows.join('')}</div></section>`;
 }
 
-function episodeShell(e,source){
+function episodeShell(e,source,origin){
   const n=e.nav||{},m=e.mirrors||{},first=Array.isArray(m)?(m[0]||null):(Object.values(m).flat()[0]||null);
   const embed=e.embed_url||e.default_embed||first?.embed_url||first?.url||'';
   const goto=source==='samehadaku'?'loadSamehadakuEpisode':'loadEpisode';
   const back=source==='samehadaku'?'loadSamehadakuHome':'loadHome';
+  const originBtn=origin?`<button class="btn btn-secondary" data-url="${esc(origin)}" onclick="loadEpisode(this.dataset.url)">Kembali ke OtakuDesu</button>`:'';
   window.currentWatch={episode_url:e.url||'',anime_url:e.anime_url||currentAnimeUrl,title:e.title||'',episode:String(e.matched_episode||e.title||''),source};
   saveHistory({...window.currentWatch,position_seconds:0,duration_seconds:null});
   return `
@@ -801,12 +802,12 @@ function episodeShell(e,source){
     <div class="episode-meta-bar">
       <div>
         <h1>${esc(String(e.title||'').replace(/Subtitle Indonesia/i,'').trim())}</h1>
-        <p>${source==='samehadaku'?`Samehadaku · tema ${esc(e.theme||'li')}${e.matched_episode?` · episode ${esc(e.matched_episode)}`:''}`:'OtakuDesu'}</p>
+        <p>${source==='samehadaku'?`Samehadaku · tema ${esc(e.theme||'li')}${e.matched_episode?` · episode ${esc(e.matched_episode)}`:''}${e.anime_title?` · ${esc(e.anime_title)}`:''}`:'OtakuDesu'}</p>
       </div>
     </div>
     <div class="episode-nav">
       <button class="page-btn" ${n.prev?`data-url="${esc(n.prev)}" onclick="${goto}(this.dataset.url)"`:'disabled'}>&larr; Ep Sblm</button>
-      <button class="btn btn-secondary" onclick="${back}()">${source==='samehadaku'?'Katalog':'Beranda'}</button>
+      ${originBtn||`<button class="btn btn-secondary" onclick="${back}()">${source==='samehadaku'?'Katalog':'Beranda'}</button>`}
       <button class="page-btn" ${n.next?`data-url="${esc(n.next)}" onclick="${goto}(this.dataset.url)"`:'disabled'}>Ep Lanjut &rarr;</button>
     </div>
     ${downloadBlock(e.downloads)}`;
