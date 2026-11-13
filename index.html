@@ -28,6 +28,7 @@
       <a href="#" data-nav="ongoing" onclick="navClick('ongoing',()=>loadOngoing(1));return false">Ongoing</a>
       <a href="#" data-nav="complete" onclick="navClick('complete',()=>loadComplete(1));return false">Complete</a>
       <a href="#" data-nav="genres" onclick="navClick('genres',loadGenres);return false">Genres</a>
+      <a href="#" data-nav="comic" onclick="navClick('comic',loadComicHome);return false">Komik</a>
       <a href="#" data-nav="samehadaku" onclick="navClick('samehadaku',loadSamehadakuHome);return false">Samehadaku</a>
       <a href="#" data-nav="anibi" data-needs-anibi class="hidden" onclick="navClick('anibi',loadAnibi);return false">Jadwal</a>
       <a href="#" data-nav="bookmarks" onclick="navClick('bookmarks',loadBookmarks);return false">Daftar Saya</a>
@@ -63,6 +64,7 @@
     <button data-pill="ongoing" class="pill" onclick="navClick('ongoing',()=>loadOngoing(1))">Ongoing</button>
     <button data-pill="complete" class="pill" onclick="navClick('complete',()=>loadComplete(1))">Tamat</button>
     <button data-pill="genres" class="pill" onclick="navClick('genres',loadGenres)">Genres</button>
+    <button data-pill="comic" class="pill" onclick="navClick('comic',loadComicHome)">Komik</button>
     <button data-pill="samehadaku" class="pill" onclick="navClick('samehadaku',loadSamehadakuHome)">Samehadaku</button>
     <button data-pill="anibi" data-needs-anibi class="pill hidden" onclick="navClick('anibi',loadAnibi)">Jadwal</button>
   </div>
@@ -128,6 +130,11 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
     <span>Genres</span>
   </button>
+  <button data-bnav="comic" class="bnav-item" onclick="navClick('comic',loadComicHome)">
+    <span class="bnav-indicator"></span>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    <span>Komik</span>
+  </button>
   <button data-bnav="anibi" data-needs-anibi class="bnav-item hidden" onclick="navClick('anibi',loadAnibi)">
     <span class="bnav-indicator"></span>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
@@ -147,5 +154,6 @@
 
 <div id="toast" class="toast hidden" role="alert"></div>
 <script src="app.js"></script>
+<script src="comic.js"></script>
 </body>
 </html>
