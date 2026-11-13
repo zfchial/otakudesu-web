@@ -359,7 +359,7 @@ function accHistoryList(items){
   return `<div class="history-list">${items.map(x=>`<article class="history-item">
       <div class="history-item-main">
         <strong>${esc(x.title)}</strong>
-        <small>${esc(x.episode||'Episode')} &middot; ${formatTime(x.position_seconds)}${x.duration_seconds?' / '+formatTime(x.duration_seconds):''}</small>
+        <small>${esc(x.episode||'Episode')} &middot; ${formatTime(x.position_seconds)}${x.duration_seconds?' / '+formatTime(x.duration_seconds):''}${x.watch_seconds?` &middot; Ditonton ${formatDuration(x.watch_seconds)}`:''}</small>
       </div>
       <button class="btn btn-primary" data-url="${esc(x.episode_url)}" onclick="loadEpisode(this.dataset.url)">${playIconSvg}<span>Lanjut</span></button>
     </article>`).join('')}</div>`;
@@ -455,7 +455,7 @@ async function loadHistory(){
     const items=(d.data||[]).map(x=>`<article class="history-item">
       <div>
         <strong>${esc(x.title)}</strong>
-        <small>${esc(x.episode||'Episode')} &middot; ${formatTime(x.position_seconds)}${x.duration_seconds?' / '+formatTime(x.duration_seconds):''}</small>
+        <small>${esc(x.episode||'Episode')} &middot; ${formatTime(x.position_seconds)}${x.duration_seconds?' / '+formatTime(x.duration_seconds):''}${x.watch_seconds?` &middot; Ditonton ${formatDuration(x.watch_seconds)}`:''}</small>
       </div>
       <button class="btn btn-primary" data-url="${esc(x.episode_url)}" onclick="loadEpisode(this.dataset.url)">${playIconSvg}<span>Lanjut</span></button>
     </article>`).join('');
@@ -474,9 +474,120 @@ async function loadHistory(){
   }
 }
 
+let watchAcc=0;
+let watchSent=0;
+let watchTimer=null;
+
 async function saveHistory(data){
-  if(authToken){
-    try{await authApi('/history','POST',data)}catch{}
+  if(!authToken||!data||!data.episode_url)return;
+  try{await authApi('/history','POST',data)}catch{}
+}
+
+function historyPayload(extra){
+  const base=window.currentWatch||{};
+  return {...base,...(extra||{})};
+}
+
+function flushWatch(extra){
+  const delta=watchAcc-watchSent;
+  if(delta<=0&&!extra)return;
+  watchSent=watchAcc;
+  saveHistory(historyPayload({watch_seconds:Math.floor(delta),...(extra||{})}));
+}
+
+function resetWatch(){
+  watchAcc=0;
+  watchSent=0;
+  nativePlayerActive=false;
+  if(watchTimer){clearInterval(watchTimer);watchTimer=null;}
+}
+
+async function lookupHistoryPosition(episodeUrl){
+  if(!authToken||!episodeUrl)return null;
+  try{
+    const d=await authApi('/history');
+    const items=d.data||[];
+    const hit=items.find(x=>x.episode_url===episodeUrl);
+    return hit?{position:Number(hit.position_seconds||0),duration:Number(hit.duration_seconds||0),watch:Number(hit.watch_seconds||0)}:null;
+  }catch(e){
+    return null;
+  }
+}
+
+function trackNativePlayer(v){
+  let last=Number(v.currentTime||0);
+  const resync=()=>{
+    last=Number(v.currentTime||0);
+  };
+  v.addEventListener('seeking',resync);
+  v.addEventListener('seeked',resync);
+  v.addEventListener('ratechange',resync);
+  v.addEventListener('pause',()=>{
+    flushWatch({position_seconds:Math.floor(v.currentTime),duration_seconds:Number.isFinite(v.duration)?Math.floor(v.duration):null});
+  });
+  v.addEventListener('ended',()=>{
+    flushWatch({position_seconds:Math.floor(v.duration||v.currentTime),duration_seconds:Number.isFinite(v.duration)?Math.floor(v.duration):null});
+  });
+  v.addEventListener('timeupdate',()=>{
+    const pos=Number(v.currentTime||0);
+    const dur=Number.isFinite(v.duration)&&v.duration>0?Math.floor(v.duration):null;
+    const delta=pos-last;
+    if(delta>0&&delta<=4)watchAcc+=delta;
+    last=pos;
+    window.currentWatch=window.currentWatch||{};
+    window.currentWatch.position_seconds=Math.floor(pos);
+    window.currentWatch.duration_seconds=dur;
+    if(watchAcc-watchSent>=8){
+      flushWatch({position_seconds:Math.floor(pos),duration_seconds:dur});
+    }
+  });
+  const originalPlay=v.play.bind(v);
+  v.play=()=>{
+    last=Number(v.currentTime||0);
+    return originalPlay();
+  };
+}
+
+let nativePlayerActive=false;
+
+function trackPassiveWatch(){
+  if(watchTimer)clearInterval(watchTimer);
+  watchTimer=setInterval(()=>{
+    if(nativePlayerActive)return;
+    if(document.visibilityState==='visible'&&window.currentWatch&&window.currentWatch.episode_url){
+      watchAcc+=10;
+      if(watchAcc-watchSent>=20)flushWatch();
+    }
+  },10000);
+}
+
+async function upgradePlayer(embedUrl){
+  const frame=document.getElementById('player');
+  if(!frame||!embedUrl)return;
+  const src=frame.querySelector('iframe')?.src||embedUrl;
+  try{
+    const d=await api(`/stream/resolve?url=${encodeURIComponent(src)}`);
+    const m=d.data||{};
+    if(!m.media_url)return;
+    const v=document.createElement('video');
+    v.controls=true;
+    v.playsInline=true;
+    v.preload='metadata';
+    v.className='native-video';
+    v.src=m.media_url;
+    frame.innerHTML='';
+    frame.appendChild(v);
+    nativePlayerActive=true;
+    const saved=await lookupHistoryPosition(window.currentWatch&&window.currentWatch.episode_url);
+    if(saved&&saved.position>2){
+      v.addEventListener('loadedmetadata',()=>{
+        try{v.currentTime=Math.min(saved.position,(v.duration||saved.position)-1);}catch(e){}
+      },{once:true});
+    }
+    trackNativePlayer(v);
+  }catch(e){
+    nativePlayerActive=false;
+    trackPassiveWatch();
   }
 }
 
@@ -752,7 +863,8 @@ async function loadEpisode(url){
     const m=e.mirrors||{};
     window.currentWatch.title=e.title||url;
     window.currentWatch.episode=e.title||'';
-    saveHistory({...window.currentWatch,position_seconds:0,duration_seconds:null});
+    resetWatch();
+    saveHistory(historyPayload({position_seconds:0,duration_seconds:null}));
     setView(gen,`
       <div class="player-wrap">
         <div class="player">
@@ -773,6 +885,8 @@ async function loadEpisode(url){
         <button class="page-btn" ${n.next?`data-url="${esc(n.next)}" onclick="loadEpisode(this.dataset.url)"`:'disabled'}>Ep Lanjut &rarr;</button>
       </div>
       ${downloadBlock(e.downloads)}`);
+    upgradePlayer(e.default_embed);
+    trackPassiveWatch();
     scrollTo(0,0);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
@@ -788,6 +902,7 @@ async function loadMirror(btn){
   try{
     const d=await api(`/embed?id=${encodeURIComponent(id)}&i=${encodeURIComponent(index)}&q=${encodeURIComponent(q)}`);
     p.innerHTML=`<iframe src="${esc(d.data.embed_url)}" allowfullscreen referrerpolicy="no-referrer"></iframe>`;
+    upgradePlayer(d.data.embed_url);
   }catch(e){
     p.innerHTML=`<div class="empty">${esc(e.message)}</div>`;
   }
@@ -798,6 +913,8 @@ async function loadSamehadaku(url){
   try{
     const d=await api(`/samehadaku-episode?url=${encodeURIComponent(url)}`);
     setView(gen,episodeShell(d.data,'samehadaku',url));
+    upgradePlayer((d.data||{}).embed_url);
+    trackPassiveWatch();
   }catch(err){
     setView(gen,`<div class="empty">${esc(err.message)}<div style="margin-top:14px"><button class="btn btn-secondary" data-url="${esc(url)}" onclick="loadEpisode(this.dataset.url)">Kembali ke OtakuDesu</button></div></div>`);
   }
@@ -872,6 +989,8 @@ async function loadSamehadakuEpisode(url){
   try{
     const d=await api(`/samehadaku/episode?url=${encodeURIComponent(url)}`);
     setView(gen,episodeShell(d.data,'samehadaku'));
+    upgradePlayer((d.data||{}).embed_url);
+    trackPassiveWatch();
     scrollTo(0,0);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
@@ -908,7 +1027,8 @@ function episodeShell(e,source,origin){
   const back=source==='samehadaku'?'loadSamehadakuHome':'loadHome';
   const originBtn=origin?`<button class="btn btn-secondary" data-url="${esc(origin)}" onclick="loadEpisode(this.dataset.url)">Kembali ke OtakuDesu</button>`:'';
   window.currentWatch={episode_url:e.url||'',anime_url:e.anime_url||currentAnimeUrl,title:e.title||'',episode:String(e.matched_episode||e.title||''),source};
-  saveHistory({...window.currentWatch,position_seconds:0,duration_seconds:null});
+  resetWatch();
+  saveHistory(historyPayload({position_seconds:0,duration_seconds:null}));
   return `
     <div class="player-wrap">
       <div class="player">
@@ -944,6 +1064,7 @@ async function playMirror(btn){
     }
     if(!url)throw Error('Mirror tanpa URL');
     p.innerHTML=`<iframe src="${esc(url)}" allowfullscreen referrerpolicy="no-referrer"></iframe>`;
+    upgradePlayer(url);
   }catch(e){
     p.innerHTML=`<div class="empty">${esc(e.message)}</div>`;
   }
@@ -1085,6 +1206,18 @@ function setupPWA(){
   }
 }
 
+window.addEventListener('beforeunload',()=>{
+  const delta=watchAcc-watchSent;
+  if(delta>0&&authToken&&window.currentWatch&&window.currentWatch.episode_url){
+    const payload=historyPayload({watch_seconds:Math.floor(delta),position_seconds:Math.floor(window.currentWatch.position_seconds||0)});
+    try{localStorage.setItem('nanostream-pending-watch',JSON.stringify(payload));}catch(e){}
+  }
+});
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden')flushWatch();
+});
+
 window.addEventListener('message',e=>{
   const d=e.data||{};
   const position=Number(d.currentTime??d.position??d.seconds);
@@ -1094,10 +1227,21 @@ window.addEventListener('message',e=>{
   }
 });
 
+function flushPendingWatch(){
+  try{
+    const raw=localStorage.getItem('nanostream-pending-watch');
+    if(!raw)return;
+    localStorage.removeItem('nanostream-pending-watch');
+    const p=JSON.parse(raw);
+    if(p&&p.episode_url&&p.watch_seconds>0)saveHistory(p);
+  }catch(e){}
+}
+
 (function init(){
   const savedTheme=localStorage.getItem('nanostream-theme')||'dark';
   applyTheme(savedTheme);
   updateAccount();
+  flushPendingWatch();
   setupPWA();
   syncAnibiAvailability();
   const tab=new URLSearchParams(location.search).get('tab');
