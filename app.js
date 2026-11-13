@@ -8,6 +8,7 @@ let renderGen=0;
 let deferredInstallPrompt=null;
 let authToken=localStorage.getItem('nanostream-token')||'';
 let activeSearchSource='otakudesu';
+let comicMode=false;
 let scheduleDaysCache=[];
 
 const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 4"><rect width="3" height="4" fill="#18181b"/></svg>');
@@ -66,6 +67,7 @@ function setActiveNav(key){
 
 function navClick(key,fn){
   closeSearchSheet();
+  comicMode=key==='comic';
   setActiveNav(key);
   scrollTo(0,0);
   fn();
@@ -141,21 +143,62 @@ function mobileSearchGo(){
   const desk=document.getElementById('searchInput');
   if(desk)desk.value=q;
   closeSearchSheet();
+  if(comicMode)return loadComicSearch(q);
   setActiveNav('');
   if(activeSearchSource==='samehadaku')return shSearch(q);
   if(activeSearchSource==='anibi')return anibiSearch(q);
   return doSearch(q);
 }
 
+function viewUrl(name,args){
+  const u=new URL(location.href);
+  const p=u.searchParams;
+  ['tab','genre','q','url','page','kind','sort','view'].forEach(k=>p.delete(k));
+  const comic={
+    loadComicHome:['home'],
+    loadComicGenres:['genres'],
+    loadComicGenre:['genre'],
+    loadComicSearch:['search'],
+    loadComicDetail:['detail'],
+    loadComicReader:['reader']
+  };
+  if(comic[name]){
+    p.set('tab','comic');
+    const mode=comic[name][0];
+    if(mode==='genre'){p.set('genre',args[0]||'');p.set('page',args[1]||1);if(args[2])p.set('kind',args[2]);if(args[3]&&args[3]!=='latest')p.set('sort',args[3]);}
+    if(mode==='search')p.set('q',args[0]||'');
+    if(mode==='detail')p.set('url',args[0]||'');
+    if(mode==='reader'){p.set('url',args[0]||'');p.set('view','reader');}
+    if(mode==='reader'&&args[1]>1)p.set('page',args[1]);
+    if(mode==='genres')p.set('genre','all');
+    if(mode==='home'){if(args[0])p.set('kind',args[0]);if(args[1]&&args[1]!=='latest')p.set('sort',args[1]);}
+  }else{
+    const tabs={loadHome:'home',loadOngoing:'ongoing',loadComplete:'complete',loadGenres:'genres',loadSamehadakuHome:'samehadaku',loadAnibi:'anibi',loadAccount:'account'};
+    if(tabs[name])p.set('tab',tabs[name]);
+  }
+  return u;
+}
+
+function comicSyncUrl(key,value,replace=true){
+  const u=new URL(location.href);
+  u.searchParams.set(key,value);
+  const state=history.state||{nanostream:true,name:'loadComicReader',args:[comicState.readerUrl,comicState.page]};
+  if(state.name==='loadComicReader')state.args=[comicState.readerUrl,comicState.page];
+  history[replace?'replaceState':'pushState'](state,'',u);
+}
+
 function view(name,args=[]){
   renderGen++;
   const state={nanostream:true,name,args};
   if(restoring)return renderGen;
+  comicMode=name.startsWith('loadComic');
+  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder=comicMode?'Cari komik...':'Cari anime...');
+  const url=viewUrl(name,args);
   if(firstView){
-    history.replaceState(state,'',location.href);
+    history.replaceState(state,'',url);
     firstView=false;
   }else{
-    history.pushState(state,'',location.href);
+    history.pushState(state,'',url);
   }
   return renderGen;
 }
@@ -166,6 +209,8 @@ function setView(gen,html){if(!stale(gen))show(html)}
 function restore(state){
   if(!state?.nanostream)return;
   restoring=true;
+  comicMode=state.name.startsWith('loadComic');
+  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder=comicMode?'Cari komik...':'Cari anime...');
   closeSearchSheet();
   const fn=window[state.name];
   if(typeof fn==='function')fn(...(state.args||[]));
@@ -776,6 +821,10 @@ async function loadGenre(slug,page=1){
 }
 
 function searchGo(){
+  if(comicMode){
+    const q=document.getElementById('searchInput')?.value.trim()||'';
+    return loadComicSearch(q);
+  }
   const s=document.getElementById('searchSource');
   const v=s?s.value:activeSearchSource;
   syncSearchSource(v);
@@ -1242,6 +1291,10 @@ function flushPendingWatch(){
 }
 
 (function init(){
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init,{once:true});
+    return;
+  }
   const savedTheme=localStorage.getItem('nanostream-theme')||'dark';
   applyTheme(savedTheme);
   updateAccount();
@@ -1249,7 +1302,21 @@ function flushPendingWatch(){
   setupPWA();
   syncAnibiAvailability();
   const tab=new URLSearchParams(location.search).get('tab');
-  if(tab==='ongoing')loadOngoing(1);
+  const params=new URLSearchParams(location.search);
+  if(tab==='comic'){
+    const genre=params.get('genre');
+    const q=params.get('q');
+    const url=params.get('url');
+    if(genre==='all')loadComicGenres();
+    else if(genre)loadComicGenre(genre,Number(params.get('page'))||1,params.get('kind')||'',params.get('sort')||'latest');
+    else if(q)loadComicSearch(q);
+    else if(url){
+      if(params.get('view')==='reader')loadComicReader(url,Number(params.get('page'))||1);
+      else loadComicDetail(url);
+    }
+    else loadComicHome(params.get('kind')||'',params.get('sort')||'latest');
+  }
+  else if(tab==='ongoing')loadOngoing(1);
   else if(tab==='complete')loadComplete(1);
   else if(tab==='samehadaku')loadSamehadakuHome();
   else if(tab==='anibi')loadAnibi();
