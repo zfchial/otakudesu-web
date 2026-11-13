@@ -80,6 +80,30 @@ function syncSearchSource(src){
   });
 }
 
+let anibiAvailable=false;
+
+function applyAnibiAvailability(ok){
+  anibiAvailable=!!ok;
+  document.querySelectorAll('[data-needs-anibi]').forEach(el=>{
+    el.classList.toggle('hidden',!anibiAvailable);
+  });
+  const opt=document.querySelector('#searchSource option[value="anibi"]');
+  if(opt)opt.hidden=!anibiAvailable;
+  const fs=document.getElementById('footerSources');
+  if(fs)fs.textContent=anibiAvailable?'OtakuDesu · Samehadaku · Anibiplay':'OtakuDesu · Samehadaku';
+  if(!anibiAvailable&&activeSearchSource==='anibi')syncSearchSource('otakudesu');
+}
+
+async function syncAnibiAvailability(){
+  try{
+    const r=await fetch(API+'/anibi/health');
+    const d=await r.json();
+    applyAnibiAvailability(d&&d.ok===true&&d.api_key===true);
+  }catch(e){
+    applyAnibiAvailability(false);
+  }
+}
+
 function openSearchSheet(){
   const sheet=document.getElementById('searchSheet');
   if(!sheet)return;
@@ -529,7 +553,7 @@ async function loadHome(){
             <span class="tag-box">SUB ID</span>
             <span>${esc(hero.episode||'Ongoing')}${hero.day?` &middot; ${esc(hero.day)}`:''}</span>
           </div>
-          <p class="hero-copy">Streaming anime subtitle Indonesia dari katalog OtakuDesu, Samehadaku, dan Anibiplay dalam satu antarmuka bersih tanpa gangguan.</p>
+          <p class="hero-copy">Streaming anime subtitle Indonesia dari katalog OtakuDesu dan Samehadaku${anibiAvailable?', dan Anibiplay':''} dalam satu antarmuka bersih tanpa gangguan.</p>
           <div class="hero-actions">
             <button class="btn btn-primary" data-url="${esc(hero.url||'')}" onclick="loadDetail(this.dataset.url)">${playIconSvg}<span>Putar</span></button>
             <button class="btn btn-secondary" data-url="${esc(hero.url||'')}" data-title="${esc(cleanTitle(hero.title||'Anime'))}" data-image="${esc(hero.image||'')}" onclick="addBookmark(this)">+ Daftar Saya</button>
@@ -952,6 +976,7 @@ function selectScheduleDay(dayKey){
 }
 
 async function loadAnibi(){
+  if(!anibiAvailable){applyAnibiAvailability(false);return;}
   setActiveNav('anibi');
   const gen=view('loadAnibi');
   try{
@@ -974,6 +999,7 @@ async function loadAnibi(){
 }
 
 async function anibiSearch(forcedQ){
+  if(!anibiAvailable){applyAnibiAvailability(false);return;}
   const q=(forcedQ??document.getElementById('searchInput').value).trim();
   if(!q)return;
   const gen=view('anibiSearch',[q]);
@@ -987,6 +1013,7 @@ async function anibiSearch(forcedQ){
 }
 
 async function loadAnibiDetail(slug){
+  if(!anibiAvailable){applyAnibiAvailability(false);return;}
   const gen=view('loadAnibiDetail',[slug]);
   try{
     const d=await api(`/anibi/detail/${encodeURIComponent(slug)}`);
@@ -1072,6 +1099,7 @@ window.addEventListener('message',e=>{
   applyTheme(savedTheme);
   updateAccount();
   setupPWA();
+  syncAnibiAvailability();
   const tab=new URLSearchParams(location.search).get('tab');
   if(tab==='ongoing')loadOngoing(1);
   else if(tab==='complete')loadComplete(1);

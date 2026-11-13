@@ -21,7 +21,7 @@
 <header class="topbar" id="topbar">
   <div class="nav-shell">
     <a class="brand plain" href="#" onclick="navClick('home',loadHome);return false" aria-label="Beranda">
-      <span class="brand-mark" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+      <span class="brand-text">NanoStream</span>
     </a>
     <nav class="main-nav" aria-label="Navigasi utama">
       <a href="#" data-nav="home" class="active" onclick="navClick('home',loadHome);return false">Home</a>
@@ -29,7 +29,7 @@
       <a href="#" data-nav="complete" onclick="navClick('complete',()=>loadComplete(1));return false">Complete</a>
       <a href="#" data-nav="genres" onclick="navClick('genres',loadGenres);return false">Genres</a>
       <a href="#" data-nav="samehadaku" onclick="navClick('samehadaku',loadSamehadakuHome);return false">Samehadaku</a>
-      <a href="#" data-nav="anibi" onclick="navClick('anibi',loadAnibi);return false">Jadwal</a>
+      <a href="#" data-nav="anibi" data-needs-anibi class="hidden" onclick="navClick('anibi',loadAnibi);return false">Jadwal</a>
       <a href="#" data-nav="bookmarks" onclick="navClick('bookmarks',loadBookmarks);return false">Daftar Saya</a>
       <a href="#" data-nav="history" onclick="navClick('history',loadHistory);return false">Riwayat</a>
       <a href="#" data-nav="account" onclick="navClick('account',loadAccount);return false">Akun</a>
@@ -39,20 +39,19 @@
         <select id="searchSource" aria-label="Sumber pencarian" onchange="syncSearchSource(this.value)">
           <option value="otakudesu">OtakuDesu</option>
           <option value="samehadaku">Samehadaku</option>
-          <option value="anibi">Anibiplay</option>
+          <option value="anibi" data-anibi-only>Anibiplay</option>
         </select>
         <input id="searchInput" type="search" placeholder="Cari anime..." onkeydown="if(event.key==='Enter')searchGo()">
         <button onclick="searchGo()" aria-label="Cari">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </button>
       </div>
-      <button id="installBtn" class="btn-install hidden" onclick="installPWA()" title="Install Aplikasi NanoStreaming">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-        <span>Install</span>
+      <button id="installBtn" class="btn-install hidden" onclick="installPWA()" title="Install Aplikasi NanoStreaming" aria-label="Install aplikasi">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
       </button>
-      <button class="account-button" onclick="accountAction()" title="Akun">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <span id="account-label">Login</span>
+      <button class="account-button" onclick="accountAction()" title="Akun" aria-label="Akun">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="account-label"></span>
       </button>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Ganti tema">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
@@ -65,7 +64,7 @@
     <button data-pill="complete" class="pill" onclick="navClick('complete',()=>loadComplete(1))">Tamat</button>
     <button data-pill="genres" class="pill" onclick="navClick('genres',loadGenres)">Genres</button>
     <button data-pill="samehadaku" class="pill" onclick="navClick('samehadaku',loadSamehadakuHome)">Samehadaku</button>
-    <button data-pill="anibi" class="pill" onclick="navClick('anibi',loadAnibi)">Jadwal</button>
+    <button data-pill="anibi" data-needs-anibi class="pill hidden" onclick="navClick('anibi',loadAnibi)">Jadwal</button>
   </div>
 </header>
 
@@ -83,7 +82,7 @@
     <div class="source-chips">
       <button data-src="otakudesu" class="src-chip active" onclick="syncSearchSource('otakudesu')">OtakuDesu</button>
       <button data-src="samehadaku" class="src-chip" onclick="syncSearchSource('samehadaku')">Samehadaku</button>
-      <button data-src="anibi" class="src-chip" onclick="syncSearchSource('anibi')">Anibiplay</button>
+      <button data-src="anibi" data-needs-anibi class="src-chip hidden" onclick="syncSearchSource('anibi')">Anibiplay</button>
     </div>
   </div>
   <div class="search-quick">
@@ -113,7 +112,7 @@
     </div>
     <div class="footer-right">
       <span class="footer-pill">PWA App</span>
-      <span class="footer-pill">OtakuDesu · Samehadaku · Anibiplay</span>
+      <span class="footer-pill" id="footerSources">OtakuDesu · Samehadaku</span>
     </div>
   </div>
 </footer>
@@ -129,7 +128,7 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
     <span>Genres</span>
   </button>
-  <button data-bnav="anibi" class="bnav-item" onclick="navClick('anibi',loadAnibi)">
+  <button data-bnav="anibi" data-needs-anibi class="bnav-item hidden" onclick="navClick('anibi',loadAnibi)">
     <span class="bnav-indicator"></span>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
     <span>Jadwal</span>
