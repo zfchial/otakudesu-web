@@ -7,13 +7,65 @@ function comicImg(src,title){
 
 function comicCard(c){
   const chapters=(c.chapters||[]).slice(0,3);
+  const ug=[...new Set((c.genres||[]).filter(Boolean))];
+  const gs=ug.length>1?ug.slice(0,3).map(g=>`<span class="comic-card-genre">${esc(g)}</span>`).join(''):'';
+  const kind=c.kind?`<span class="comic-card-kind">${esc(c.kind)}</span>`:'';
+  const meta=chapters.length?chapters.map(x=>x.title).join(' · '):(ug.length===1?ug[0]:'Detail & Daftar Chapter');
   return `<article class="card comic-card" data-url="${esc(c.url||'')}" onclick="loadComicDetail(this.dataset.url)">
-    <div class="poster">${comicImg(c.cover,c.title)}<span class="poster-badge">Komik</span></div>
+    <div class="poster">${comicImg(c.cover,c.title)}<span class="poster-badge">Komik</span>${kind}</div>
     <div class="card-body">
       <div class="card-title">${esc(c.title||'')}</div>
-      <div class="meta">${esc(chapters.length?chapters.map(x=>x.title).join(' · '):'Detail & Daftar Chapter')}</div>
+      <div class="meta">${esc(meta)}</div>
+      ${gs?`<div class="comic-card-genres">${gs}</div>`:''}
     </div>
   </article>`;
+}
+
+function comicGenreChips(list,active){
+  return `<div class="comic-genres">${(list||[]).map(g=>`<button class="comic-genre${g.slug===active?' active':''}" data-slug="${esc(g.slug)}" onclick="loadComicGenre(this.dataset.slug)">${esc(g.name)}</button>`).join('')}</div>`;
+}
+
+async function loadComicGenre(slug,page){
+  if(!slug)return;
+  page=page||1;
+  const gen=view('loadComicGenre',[slug,page]);
+  try{
+    const d=await api(`/komik/genre?slug=${encodeURIComponent(slug)}&page=${page}`);
+    const items=(d.data&&d.data.items)||[];
+    const gd=await api('/komik/genres').catch(()=>({data:{genres:[]}}));
+    const all=(gd.data&&gd.data.genres)||[];
+    const label=(all.find(g=>g.slug===slug)||{}).name||slug.replace(/-/g,' ');
+    setView(gen,`<section class="section">
+      ${head(`Genre ${esc(label)}`,`${items.length} judul di halaman ${page}`,'loadComicHome()')}
+      <div class="comic-search-bar">
+        <input id="comicSearchInput" type="search" placeholder="Cari judul komik..." onkeydown="if(event.key==='Enter')loadComicSearch()">
+        <button class="btn btn-primary" onclick="loadComicSearch()">Cari Komik</button>
+      </div>
+      ${comicGenreChips(all,slug)}
+      ${items.length?`<div class="grid">${items.map(comicCard).join('')}</div>`:'<div class="empty">Tidak ada komik pada genre ini.</div>'}
+      <div class="comic-pager">
+        ${page>1?`<button class="btn btn-secondary" onclick="loadComicGenre('${esc(slug)}',${page-1})">&#8592; Sebelumnya</button>`:'<span></span>'}
+        ${items.length>=20?`<button class="btn btn-secondary" onclick="loadComicGenre('${esc(slug)}',${page+1})">Berikutnya &#8594;</button>`:'<span></span>'}
+      </div>
+    </section>`);
+  }catch(e){
+    setView(gen,`<div class="empty">${esc(e.message)}</div>`);
+  }
+}
+
+async function loadComicGenres(){
+  setActiveNav('comic');
+  const gen=view('loadComicGenres');
+  try{
+    const gd=await api('/komik/genres');
+    const genres=(gd.data&&gd.data.genres)||[];
+    setView(gen,`<section class="section">
+      ${head('Genre Komik',`${genres.length} genre tersedia`,'loadComicHome()')}
+      <div class="comic-genres">${genres.map(g=>`<button class="comic-genre" data-slug="${esc(g.slug)}" onclick="loadComicGenre(this.dataset.slug)">${esc(g.name)}</button>`).join('')}</div>
+    </section>`);
+  }catch(e){
+    setView(gen,`<div class="empty">${esc(e.message)}</div>`);
+  }
 }
 
 async function loadComicHome(){
@@ -22,12 +74,15 @@ async function loadComicHome(){
   try{
     const d=await api('/komik/home');
     const items=(d.data&&d.data.items)||[];
+    const gd=await api('/komik/genres').catch(()=>({data:{genres:[]}}));
+    const genres=(gd.data&&gd.data.genres)||[];
     setView(gen,`<section class="section">
       ${head('Komik Bahasa Indonesia','Manga, manhwa, dan manhua subtitle Indonesia','loadComicSearch()')}
       <div class="comic-search-bar">
         <input id="comicSearchInput" type="search" placeholder="Cari judul komik..." onkeydown="if(event.key==='Enter')loadComicSearch()">
         <button class="btn btn-primary" onclick="loadComicSearch()">Cari Komik</button>
       </div>
+      ${genres.length?`<div class="section-head comic-genre-head"><h2>Genre</h2><a href="#" onclick="loadComicGenres();return false">Semua &#8250;</a></div><div class="comic-genres">${genres.map(g=>`<button class="comic-genre" data-slug="${esc(g.slug)}" onclick="loadComicGenre(this.dataset.slug)">${esc(g.name)}</button>`).join('')}</div>`:''}
       ${items.length?`<div class="grid">${items.map(comicCard).join('')}</div>`:'<div class="empty">Katalog komik belum tersedia.</div>'}
     </section>`);
   }catch(e){
@@ -67,7 +122,7 @@ async function loadComicDetail(url){
     comicState.title=c.title||'';
     comicState.cover=c.cover||'';
     comicState.chapters=c.chapters||[];
-    const genres=(c.genres||[]).map(g=>`<span class="chip">${esc(g)}</span>`).join('');
+    const genres=(c.genres||[]).map(g=>`<button class="chip comic-genre-chip" data-slug="${esc(g.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))}" onclick="loadComicGenre(this.dataset.slug)">${esc(g)}</button>`).join('');
     const chapters=c.chapters?.length?`<div class="comic-chapters">${c.chapters.map((ch,i)=>`<a class="comic-chapter" href="#" data-url="${esc(ch.url)}" onclick="loadComicReader(this.dataset.url);return false"><span class="cc-num">${esc(ch.title)}</span><span class="cc-date">${esc(ch.date||'')}</span></a>`).join('')}</div>`:'<div class="empty">Daftar chapter belum tersedia.</div>';
     setView(gen,`
       <section class="detail comic-detail">
