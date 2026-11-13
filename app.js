@@ -12,6 +12,7 @@ let scheduleDaysCache=[];
 
 const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 4"><rect width="3" height="4" fill="#18181b"/></svg>');
 const playIconSvg='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+const chevronSvg='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
 
 function esc(s){
   const d=document.createElement('div');
@@ -19,8 +20,25 @@ function esc(s){
   return d.innerHTML;
 }
 
-function show(h){content.innerHTML=h}
-function wait(v){loader.classList.toggle('hidden',!v)}
+function show(h){
+  content.innerHTML=h;
+  staggerCards();
+  const prog=document.getElementById('topProgress');
+  if(prog)prog.classList.add('hidden');
+}
+
+function staggerCards(){
+  const cards=[...content.querySelectorAll('.card')].slice(0,24);
+  cards.forEach((c,i)=>{
+    c.style.animationDelay=Math.min(i*28,560)+'ms';
+  });
+}
+
+function wait(v){
+  loader.classList.toggle('hidden',!v);
+  const prog=document.getElementById('topProgress');
+  if(prog)prog.classList.toggle('hidden',!v);
+}
 
 function showToast(msg,actionLabel,actionFn){
   const t=document.getElementById('toast');
@@ -66,13 +84,27 @@ function openSearchSheet(){
   const sheet=document.getElementById('searchSheet');
   if(!sheet)return;
   sheet.classList.remove('hidden');
+  document.getElementById('searchBackdrop')?.classList.remove('hidden');
   setActiveNav('search');
   const inp=document.getElementById('mobileSearchInput');
   if(inp)setTimeout(()=>inp.focus(),40);
 }
 
+function quickSearch(q){
+  const inp=document.getElementById('mobileSearchInput');
+  if(inp)inp.value=q;
+  const desk=document.getElementById('searchInput');
+  if(desk)desk.value=q;
+  closeSearchSheet();
+  setActiveNav('');
+  if(activeSearchSource==='samehadaku')return shSearch(q);
+  if(activeSearchSource==='anibi')return anibiSearch(q);
+  return doSearch(q);
+}
+
 function closeSearchSheet(restoreKey='home'){
   const sheet=document.getElementById('searchSheet');
+  document.getElementById('searchBackdrop')?.classList.add('hidden');
   if(sheet&&!sheet.classList.contains('hidden')){
     sheet.classList.add('hidden');
     if(restoreKey)setActiveNav(restoreKey);
@@ -458,7 +490,44 @@ async function loadGenres(){
   const gen=view('loadGenres');
   try{
     const d=await api('/genres');
-    setView(gen,`<section class="section">${head('Daftar Genre',`${(d.data||[]).length} kategori anime`)}<div class="genre-menu">${(d.data||[]).map(g=>`<a class="genre-card" href="#" data-slug="${esc(g.slug)}" onclick="loadGenre(this.dataset.slug,1);return false"><strong>${esc(g.name)}</strong><span>Jelajahi judul &rarr;</span></a>`).join('')}</div></section>`);
+    const list=d.data||[];
+    const groups=[
+      {title:'Populer', slugs:['action','adventure','fantasy','comedy','romance']},
+      {title:'Cerita & Nuansa', slugs:['drama','mystery','psychological','historical','horror']},
+      {title:'Petualangan & Aksi', slugs:['adventure','martial-arts','military','police','samurai']},
+      {title:'Sains & Fantasi', slugs:['sci-fi','mecha','magic','demons','supernatural']},
+      {title:'Gaya Hidup', slugs:['school','slice-of-life','sports','music','game']},
+      {title:'Lainnya', slugs:[]}
+    ];
+    const bySlug=new Map(list.map(g=>[g.slug,g]));
+    const used=new Set();
+    const sections=[];
+    for(const grp of groups){
+      let items=grp.slugs.map(s=>bySlug.get(s)).filter(g=>g&&!used.has(g.slug));
+      items.forEach(g=>used.add(g.slug));
+      if(grp.title==='Lainnya'){
+        const rest=list.filter(g=>!used.has(g.slug));
+        if(!rest.length)continue;
+        sections.push({title:grp.title,items:rest});
+        continue;
+      }
+      if(!items.length)continue;
+      sections.push({title:grp.title,items});
+    }
+    const cardHtml=g=>`<a class="genre-card" href="#" data-slug="${esc(g.slug)}" onclick="loadGenre(this.dataset.slug,1);return false"><span>${esc(g.name)}</span>${chevronSvg}</a>`;
+    setView(gen,`<div class="genre-shell">
+      <div class="genre-intro">
+        <span class="hero-kicker">Koleksi</span>
+        <h2>Jelajahi ${list.length} Genre Anime</h2>
+        <p>Pilih genre untuk melihat seluruh judul di dalamnya. Semua Judul diurutkan dari yang paling baru.</p>
+      </div>
+      <div class="genre-groups">
+        ${sections.map(sec=>`<section class="genre-group">
+          <h3 class="genre-group-title">${esc(sec.title)}</h3>
+          <div class="genre-menu">${sec.items.map(cardHtml).join('')}</div>
+        </section>`).join('')}
+      </div>
+    </div>`);
   }catch(e){
     setView(gen,`<div class="empty">${esc(e.message)}</div>`);
   }
