@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NanoStream Diagnosa</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#08080a;color:#f7f7f8;font:14px/1.6 system-ui,sans-serif;padding:24px}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+p.sub{color:#a6a6b2;margin:0 0 20px}
+.row{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid #24242b;border-radius:10px;background:#101014;margin-bottom:8px}
+.tag{flex:none;font:700 11px ui-monospace,monospace;padding:3px 8px;border-radius:6px;margin-top:2px}
+.ok{background:#173d36;color:#7ce0b1}
+.bad{background:#3d1720;color:#fb7185}
+.wait{background:#26262e;color:#a6a6b2}
+.name{font-weight:600}
+.det{color:#a6a6b2;font-size:12px;word-break:break-all}
+button{font:600 13px inherit;color:#fff;background:#e11d48;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;margin:14px 8px 0 0}
+button.alt{background:#26262e}
+pre{white-space:pre-wrap;background:#101014;border:1px solid #24242b;border-radius:10px;padding:14px;font:12px/1.6 ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>NanoStream Diagnosa</h1>
+<p class="sub">Halaman ini mengetes koneksi dan browser dari perangkat ini. Kirim hasilnya (tombol Salin) kalau ada masalah tampilan.</p>
+<div id="rows"></div>
+<button onclick="copyAll()">Salin Hasil</button>
+<button class="alt" onclick="location.reload()">Ulangi Tes</button>
+<pre id="plain" hidden></pre>
+</div>
+<script>
+const API='https://api.xox.web.id/api';
+const rows=document.getElementById('rows');
+const results=[];
+function add(name,state,det){
+  const el=document.createElement('div');
+  el.className='row';
+  const cls=state==='OK'?'ok':state==='GAGAL'?'bad':'wait';
+  el.innerHTML='<span class="tag '+cls+'">'+state+'</span><div><div class="name"></div><div class="det"></div></div>';
+  el.querySelector('.name').textContent=name;
+  el.querySelector('.det').textContent=det;
+  rows.appendChild(el);
+  if(state!=='...')results.push('['+state+'] '+name+' :: '+det);
+  return el;
+}
+function set(el,state,det){
+  const tag=el.querySelector('.tag');
+  tag.className='tag '+(state==='OK'?'ok':'bad');
+  tag.textContent=state;
+  el.querySelector('.det').textContent=det;
+  results.push('['+state+'] '+el.querySelector('.name').textContent+' :: '+det);
+}
+async function timed(url,opts,ms){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),ms||12000);
+  const start=performance.now();
+  try{
+    const r=await fetch(url,Object.assign({signal:ctrl.signal},opts||{}));
+    return {r,ms:Math.round(performance.now()-start)};
+  }finally{clearTimeout(t)}
+}
+async function run(){
+  add('Browser', 'OK', navigator.userAgent);
+  const m=navigator.userAgent.match(/Chrome\/(\d+)/);
+  const ver=m?Number(m[1]):0;
+  add('Versi Chrome', ver>=90?'OK':'GAGAL', ver?('Chrome '+ver+(ver<90?' — terlalu tua, update Chrome':' (cukup)')):'bukan Chrome / tidak terdeteksi');
+  let feat=true;
+  try{eval('const o={a:{b:1}};o?.a?.b;1??2')}catch(e){feat=false}
+  add('Fitur JS modern', feat?'OK':'GAGAL', feat?'optional chaining didukung':'browser tidak mendukung optional chaining — halaman utama tidak akan jalan');
+  add('CSS aspect-ratio', CSS.supports('aspect-ratio','3 / 4')?'OK':'GAGAL', CSS.supports('aspect-ratio','3 / 4')?'didukung':'tidak didukung — layout kartu rusak');
+  let el=add('Kontrol internet (google)', '...', 'mengetes...');
+  try{
+    const {ms}=await timed('https://www.google.com/generate_204',{mode:'no-cors'},8000);
+    set(el,'OK','terhubung, '+ms+' ms');
+  }catch(e){set(el,'GAGAL',String(e&&e.message||e)+' — internet bermasalah')}
+  el=add('DNS api.xox.web.id (DoH)', '...', 'mengetes...');
+  try{
+    const {r,ms}=await timed('https://cloudflare-dns.com/dns-query?name=api.xox.web.id&type=A',{headers:{accept:'application/dns-json'}},10000);
+    const d=await r.json();
+    const ips=(d.Answer||[]).filter(a=>a.type===1).map(a=>a.data).join(', ');
+    set(el,ips?'OK':'GAGAL',(ips||'tidak ada record A')+' ('+ms+' ms)');
+  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  el=add('API health', '...', 'mengetes '+API+'/komik/health ...');
+  try{
+    const {r,ms}=await timed(API+'/komik/health',{},15000);
+    const d=await r.json();
+    set(el,r.ok&&d.ok?'OK':'GAGAL','HTTP '+r.status+', '+ms+' ms, '+JSON.stringify(d).slice(0,120));
+  }catch(e){set(el,'GAGAL',String(e&&e.message||e)+' — API tidak terjangkau dari jaringan ini')}
+  el=add('API katalog komik', '...', 'mengetes...');
+  try{
+    const {r,ms}=await timed(API+'/komik/home',{},20000);
+    const d=await r.json();
+    const n=d&&d.data&&d.data.items?d.data.items.length:0;
+    set(el,n?'OK':'GAGAL','HTTP '+r.status+', '+n+' judul, '+ms+' ms');
+  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  el=add('Frontend Pages', '...', 'mengetes...');
+  try{
+    const {r,ms}=await timed('https://zfchial.github.io/otakudesu-web/sw.js',{cache:'no-store'},12000);
+    const t=await r.text();
+    const v=(t.match(/nanostream-shell-(v\d+)/)||[])[1]||'?';
+    set(el,r.ok?'OK':'GAGAL','HTTP '+r.status+', cache '+v+', '+ms+' ms');
+  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  el=add('Service worker aktif', '...', 'memeriksa...');
+  try{
+    const regs=await navigator.serviceWorker.getRegistrations();
+    const mine=regs.filter(r=>r.scope.includes('otakudesu-web'));
+    set(el,'OK',mine.length?mine.map(r=>r.scope+(r.active?' (aktif)':' (menunggu)')).join('; '):'tidak ada SW terdaftar di scope aplikasi');
+  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  el=add('Proxy sistem', '...', 'memeriksa...');
+  try{
+    const {ms}=await timed('https://api.xox.web.id/',{cache:'no-store'},10000);
+    set(el,'OK','root API merespons, '+ms+' ms');
+  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  document.getElementById('plain').textContent=results.join('\n');
+}
+function copyAll(){
+  const txt=results.join('\n');
+  const pre=document.getElementById('plain');
+  pre.hidden=false;
+  pre.textContent=txt;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>{pre.textContent='Tersalin ke clipboard:\n\n'+txt}).catch(()=>{});
+  }
+}
+run();
+</script>
+</body>
+</html>
