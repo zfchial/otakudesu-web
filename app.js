@@ -223,11 +223,15 @@ async function api(path,retry=1){
   try{
     for(let i=0;;i++){
       try{
-        const r=await fetch(API+path);
+        const ctrl=new AbortController();
+        const t=setTimeout(()=>ctrl.abort(),20000);
+        let r;
+        try{r=await fetch(API+path,{signal:ctrl.signal})}finally{clearTimeout(t)}
         const d=await r.json();
         if(!d.ok)throw Error(d.error||`API ${r.status}`);
         return d;
       }catch(e){
+        if(e&&e.name==='AbortError')e=Error('API timeout (20 detik)');
         if(i>=retry||/\b(401|403|404)\b/.test(e.message))throw e;
         await new Promise(r=>setTimeout(r,1200));
       }
@@ -1242,6 +1246,12 @@ function setupPWA(){
   syncNet();
 
   if('serviceWorker' in navigator){
+    let refreshing=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(refreshing)return;
+      refreshing=true;
+      location.reload();
+    });
     navigator.serviceWorker.register('./sw.js').then(reg=>{
       reg.addEventListener('updatefound',()=>{
         const nw=reg.installing;
@@ -1250,8 +1260,8 @@ function setupPWA(){
           if(nw.state==='installed'&&navigator.serviceWorker.controller){
             showToast('Pembaruan aplikasi tersedia','Muat Ulang',()=>{
               nw.postMessage({type:'SKIP_WAITING'});
-              location.reload();
             });
+            setTimeout(()=>{try{nw.postMessage({type:'SKIP_WAITING'})}catch(e){}},15000);
           }
         });
       });

@@ -153,7 +153,42 @@
 </nav>
 
 <div id="toast" class="toast hidden" role="alert"></div>
-<script src="app.js"></script>
-<script src="comic.js"></script>
+<script>
+(function(){
+  var errs=[];
+  window.__nsErrs=errs;
+  window.onerror=function(m,s,l){errs.push(String(m)+' @ '+String(s||'').split('/').pop()+':'+l);return false};
+  window.addEventListener('unhandledrejection',function(e){errs.push('Promise: '+String(e.reason&&e.reason.message||e.reason))});
+  window.__nsReset=function(){
+    var done=function(){location.reload()};
+    try{
+      var ps=[];
+      if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations){ps.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}
+      if(window.caches&&caches.keys){ps.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}))}
+      Promise.all(ps).then(done,done);
+    }catch(e){done()}
+  };
+  function panel(){
+    var c=document.getElementById('content');
+    if(!c||c.innerHTML.replace(/\s/g,'')!=='')return;
+    var det=errs.length?errs.join('\n'):'Tidak ada error JS tercatat. Kemungkinan skrip gagal dimuat atau API tidak merespons.';
+    var btn='font:600 13px system-ui,sans-serif;color:#fff;background:#e11d48;border:0;border-radius:8px;padding:10px 16px;cursor:pointer';
+    var btn2='font:600 13px system-ui,sans-serif;color:#f7f7f8;background:#26262e;border:1px solid #3a3a45;border-radius:8px;padding:10px 16px;cursor:pointer';
+    c.innerHTML='<div style="max-width:640px;margin:48px auto;padding:24px;border:1px solid #24242b;border-radius:12px;background:#101014;color:#f7f7f8;font:14px/1.6 system-ui,sans-serif">'
+      +'<h2 style="margin:0 0 8px;font-size:18px">Halaman gagal dimuat</h2>'
+      +'<p style="color:#a6a6b2;margin:0 0 12px;font-size:12px;word-break:break-all">'+navigator.userAgent+'</p>'
+      +'<pre style="white-space:pre-wrap;background:#08080a;border:1px solid #24242b;border-radius:8px;padding:12px;font-size:12px;color:#fb7185;margin:0">'+det.replace(/</g,'&lt;')+'</pre>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
+      +'<button onclick="location.reload()" style="'+btn+'">Muat Ulang</button>'
+      +'<button onclick="__nsReset()" style="'+btn2+'">Reset Cache</button>'
+      +'<button onclick="location.href=\'diag.html\'" style="'+btn2+'">Buka Diagnosa</button>'
+      +'</div></div>';
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(panel,10000)})}
+  else{setTimeout(panel,10000)}
+})();
+</script>
+<script src="app.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat app.js')"></script>
+<script src="comic.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat comic.js')"></script>
 </body>
 </html>

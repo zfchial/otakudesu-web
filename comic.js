@@ -694,7 +694,10 @@ function comicBatchClear(){
 }
 
 async function comicApiQuiet(path){
-  const r=await fetch(API+path);
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),20000);
+  let r;
+  try{r=await fetch(API+path,{signal:ctrl.signal})}finally{clearTimeout(t)}
   const d=await r.json();
   if(!d.ok)throw Error(d.error||'API '+r.status);
   return d;
