@@ -53,6 +53,10 @@ function set(el,state,det){
   el.querySelector('.det').textContent=det;
   results.push('['+state+'] '+el.querySelector('.name').textContent+' :: '+det);
 }
+function errText(e){
+  if(e&&e.name==='AbortError')return 'timeout — tidak ada respons (mungkin diblokir jaringan/ISP)';
+  return String(e&&e.message||e);
+}
 async function timed(url,opts,ms){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),ms||12000);
@@ -75,45 +79,45 @@ async function run(){
   try{
     const {ms}=await timed('https://www.google.com/generate_204',{mode:'no-cors'},8000);
     set(el,'OK','terhubung, '+ms+' ms');
-  }catch(e){set(el,'GAGAL',String(e&&e.message||e)+' — internet bermasalah')}
+  }catch(e){set(el,'GAGAL',errText(e)+' — internet bermasalah')}
   el=add('DNS api.xox.web.id (DoH)', '...', 'mengetes...');
   try{
     const {r,ms}=await timed('https://cloudflare-dns.com/dns-query?name=api.xox.web.id&type=A',{headers:{accept:'application/dns-json'}},10000);
     const d=await r.json();
     const ips=(d.Answer||[]).filter(a=>a.type===1).map(a=>a.data).join(', ');
     set(el,ips?'OK':'GAGAL',(ips||'tidak ada record A')+' ('+ms+' ms)');
-  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  }catch(e){set(el,'GAGAL',errText(e))}
   el=add('API health', '...', 'mengetes '+API+'/komik/health ...');
   try{
     const {r,ms}=await timed(API+'/komik/health',{},15000);
     const d=await r.json();
     set(el,r.ok&&d.ok?'OK':'GAGAL','HTTP '+r.status+', '+ms+' ms, '+JSON.stringify(d).slice(0,120));
-  }catch(e){set(el,'GAGAL',String(e&&e.message||e)+' — API tidak terjangkau dari jaringan ini')}
+  }catch(e){set(el,'GAGAL',errText(e)+' — API tidak terjangkau dari jaringan ini')}
   el=add('API katalog komik', '...', 'mengetes...');
   try{
     const {r,ms}=await timed(API+'/komik/home',{},20000);
     const d=await r.json();
     const n=d&&d.data&&d.data.items?d.data.items.length:0;
     set(el,n?'OK':'GAGAL','HTTP '+r.status+', '+n+' judul, '+ms+' ms');
-  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  }catch(e){set(el,'GAGAL',errText(e))}
   el=add('Frontend Pages', '...', 'mengetes...');
   try{
     const {r,ms}=await timed('https://zfchial.github.io/otakudesu-web/sw.js',{cache:'no-store'},12000);
     const t=await r.text();
     const v=(t.match(/nanostream-shell-(v\d+)/)||[])[1]||'?';
     set(el,r.ok?'OK':'GAGAL','HTTP '+r.status+', cache '+v+', '+ms+' ms');
-  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  }catch(e){set(el,'GAGAL',errText(e))}
   el=add('Service worker aktif', '...', 'memeriksa...');
   try{
     const regs=await navigator.serviceWorker.getRegistrations();
     const mine=regs.filter(r=>r.scope.includes('otakudesu-web'));
     set(el,'OK',mine.length?mine.map(r=>r.scope+(r.active?' (aktif)':' (menunggu)')).join('; '):'tidak ada SW terdaftar di scope aplikasi');
-  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  }catch(e){set(el,'GAGAL',errText(e))}
   el=add('Proxy sistem', '...', 'memeriksa...');
   try{
     const {ms}=await timed('https://api.xox.web.id/',{cache:'no-store'},10000);
     set(el,'OK','root API merespons, '+ms+' ms');
-  }catch(e){set(el,'GAGAL',String(e&&e.message||e))}
+  }catch(e){set(el,'GAGAL',errText(e))}
   document.getElementById('plain').textContent=results.join('\n');
 }
 function copyAll(){
