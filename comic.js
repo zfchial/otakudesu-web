@@ -81,15 +81,26 @@ function comicFavCard(x){
   </article>`;
 }
 let comicLastScrollY=0;
-window.addEventListener('scroll',()=>{
+let comicScrollSrc='';
+function comicScrollPos(){
+  const wrap=document.getElementById('comicReaderWrap');
+  if(!wrap)return null;
+  const fs=wrap.classList.contains('fs')||wrap.classList.contains('pseudo-fullscreen')||document.fullscreenElement===wrap;
+  return fs?{src:'wrap',y:wrap.scrollTop}:{src:'win',y:window.scrollY};
+}
+document.addEventListener('scroll',()=>{
   const wrap=document.getElementById('comicReaderWrap');
   if(!wrap)return;
-  const y=window.scrollY;
-  const dy=y-comicLastScrollY;
-  comicLastScrollY=y;
-  if(dy>10&&y>220&&!comicState.toolsPinned)wrap.classList.add('tools-hidden');
+  if(wrap.querySelector('.comic-reader.single'))return;
+  if(Date.now()-(comicState.readerOpenedAt||0)<800)return;
+  const s=comicScrollPos();
+  if(!s)return;
+  if(s.src!==comicScrollSrc){comicScrollSrc=s.src;comicLastScrollY=s.y;return}
+  const dy=s.y-comicLastScrollY;
+  comicLastScrollY=s.y;
+  if(dy>10&&s.y>220&&!comicState.toolsPinned)wrap.classList.add('tools-hidden');
   else if(dy<-10){wrap.classList.remove('tools-hidden');comicState.toolsPinned=false}
-},{passive:true});
+},{capture:true,passive:true});
 function comicToggleTools(){
   const wrap=document.getElementById('comicReaderWrap');
   if(!wrap)return;
@@ -429,6 +440,7 @@ function comicSetMode(mode){
   localStorage.setItem('nanostream-comic-reader',JSON.stringify(settings));
   const reader=document.querySelector('.comic-reader');
   if(reader)reader.classList.toggle('single',mode==='single');
+  if(mode==='single'){document.getElementById('comicReaderWrap')?.classList.remove('tools-hidden');comicState.toolsPinned=false}
   document.querySelectorAll('.comic-mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   comicShowPage(comicState.page||1);
 }
@@ -513,6 +525,9 @@ async function loadComicReader(url,startPage=1){
     if(dj)imgs.forEach(im=>{im.url=comicImgProxy(im.url)});
     comicState.readerUrl=url;
     comicState.toolsPinned=false;
+    comicState.readerOpenedAt=Date.now();
+    comicLastScrollY=0;
+    comicScrollSrc='';
     comicState.series=r.series||comicState.url;
     comicState.chapterTitle=r.title||'';
     comicState.images=imgs.map(im=>im.url);
@@ -613,6 +628,9 @@ async function comicToggleFullscreen(){
     }
   }
   comicFsSync();
+  comicScrollSrc='';
+  comicState.toolsPinned=false;
+  document.getElementById('comicReaderWrap')?.classList.remove('tools-hidden');
 }
 
 document.addEventListener('fullscreenchange',comicFsSync);
