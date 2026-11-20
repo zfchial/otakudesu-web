@@ -1,5 +1,5 @@
-const CACHE_SHELL='nanostream-shell-v42';
-const CACHE_DATA='nanostream-data-v42';
+const CACHE_SHELL='nanostream-shell-v43';
+const CACHE_DATA='nanostream-data-v43';
 const SHELL=[
   './',
   './index.html',
@@ -9,6 +9,7 @@ const SHELL=[
   './drama.js',
   './nkvideo.js',
   './aidrama.js',
+  './western.js',
   './hls.min.js',
   './manifest.webmanifest',
   './icons/favicon-32.png',
