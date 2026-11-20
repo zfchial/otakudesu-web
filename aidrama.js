@@ -96,7 +96,7 @@ async function loadAiDetail(slug,preset){
       </section>
       <section class="nk-section" id="aiPlayer"><div class="nk-section-head"><h2 id="aiPlayerTitle">Player</h2><span id="aiPlayerInfo">Pilih episode</span></div>
         <div class="ai-stage"><video id="aiVideo" controls playsinline preload="metadata"></video><div class="nk-idle"><span>&#9654;</span><p>Pilih episode untuk mulai menonton</p></div></div>
-        <div class="nk-tools"><button class="btn btn-secondary" id="aiPrev" onclick="aiStep(-1)">&#8592; Episode sebelumnya</button><button class="btn btn-secondary" id="aiNext" onclick="aiStep(1)">Episode berikutnya &#8594;</button></div>
+        <div class="nk-tools"><a id="aiOpenTab" class="btn btn-secondary hidden" target="_blank" rel="noopener" href="#">Buka Video di Tab Baru</a><button class="btn btn-secondary" id="aiPrev" onclick="aiStep(-1)">&#8592; Episode sebelumnya</button><button class="btn btn-secondary" id="aiNext" onclick="aiStep(1)">Episode berikutnya &#8594;</button></div>
         <div class="nk-servers" id="aiStreams"></div>
       </section>`);
   }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat detail')}</div>`)}
@@ -133,8 +133,11 @@ function aiAttach(i){
   const v=document.getElementById('aiVideo');
   if(!s||!v)return;
   document.querySelectorAll('#aiStreams .nk-srv').forEach((b,j)=>b.classList.toggle('active',j===i));
+  const mp4=`${API}/aidrama/mp4?url=${encodeURIComponent(s.url)}`;
+  const tab=document.getElementById('aiOpenTab');
+  if(tab){tab.href=mp4;tab.classList.remove('hidden')}
   showToast?.('Menyiapkan video...');
-  v.src=`${API}/aidrama/mp4?url=${encodeURIComponent(s.url)}`;
+  v.src=mp4;
   v.play().catch(()=>{});
 }
 function aiStep(dir){
