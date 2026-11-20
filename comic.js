@@ -527,7 +527,8 @@ function comicGoPage(delta){
 }
 function comicJumpPage(value){
   comicShowPage(value);
-  document.getElementById('comic-page-'+comicState.page)?.scrollIntoView({block:'start',behavior:'smooth'});
+  const el=document.querySelector('.comic-reader.single .comic-page.current')||document.getElementById('comic-page-'+comicState.page);
+  el?.scrollIntoView({block:'start'});
 }
 
 function comicPreload(page){
