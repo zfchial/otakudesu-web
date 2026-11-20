@@ -176,7 +176,7 @@ function viewUrl(name,args){
     if(mode==='genres')p.set('genre','all');
     if(mode==='home'){if(args[0])p.set('kind',args[0]);if(args[1]&&args[1]!=='latest')p.set('sort',args[1]);}
   }else{
-    const tabs={loadHome:'home',loadOngoing:'ongoing',loadComplete:'complete',loadGenres:'genres',loadSamehadakuHome:'samehadaku',loadAnibi:'anibi',loadAccount:'account'};
+    const tabs={loadHome:'home',loadOngoing:'ongoing',loadComplete:'complete',loadGenres:'genres',loadSamehadakuHome:'samehadaku',loadAnibi:'anibi',loadNkHome:'nkvideo',loadNkCategory:'nkvideo',loadNkSearch:'nkvideo',loadNkDetail:'nkvideo',loadAccount:'account'};
     if(tabs[name])p.set('tab',tabs[name]);
   }
   return u;
@@ -263,6 +263,7 @@ function updateAccount(){
   const el=document.getElementById('account-label');
   const name=localStorage.getItem('nanostream-user')||'';
   if(el)el.textContent=name||(authToken?'Akun':'Login');
+  if(typeof syncNkAdminNav==='function')syncNkAdminNav();
 }
 
 function accountAction(){
@@ -1344,6 +1345,7 @@ function flushPendingWatch(){
   else if(tab==='complete')loadComplete(1);
   else if(tab==='samehadaku')loadSamehadakuHome();
   else if(tab==='anibi')loadAnibi();
+  else if(tab==='nkvideo')loadNkHome();
   else if(tab==='genres')loadGenres();
   else loadHome();
 })();

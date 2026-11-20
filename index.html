@@ -31,6 +31,7 @@
       <a href="#" data-nav="comic" onclick="navClick('comic',loadComicHome);return false">Komik</a>
       <a href="#" data-nav="drama" onclick="navClick('drama',loadDramaHome);return false">Drama</a>
       <a href="#" data-nav="samehadaku" onclick="navClick('samehadaku',loadSamehadakuHome);return false">Samehadaku</a>
+      <a href="#" data-nav="nkvideo" data-admin-only class="hidden" onclick="navClick('nkvideo',loadNkHome);return false">Video</a>
       <a href="#" data-nav="anibi" data-needs-anibi class="hidden" onclick="navClick('anibi',loadAnibi);return false">Jadwal</a>
       <a href="#" data-nav="bookmarks" onclick="navClick('bookmarks',loadBookmarks);return false">Daftar Saya</a>
       <a href="#" data-nav="history" onclick="navClick('history',loadHistory);return false">Riwayat</a>
@@ -68,6 +69,7 @@
     <button data-pill="comic" class="pill" onclick="navClick('comic',loadComicHome)">Komik</button>
     <button data-pill="drama" class="pill" onclick="navClick('drama',loadDramaHome)">Drama</button>
     <button data-pill="samehadaku" class="pill" onclick="navClick('samehadaku',loadSamehadakuHome)">Samehadaku</button>
+    <button data-pill="nkvideo" data-admin-only class="pill hidden" onclick="navClick('nkvideo',loadNkHome)">Video</button>
     <button data-pill="anibi" data-needs-anibi class="pill hidden" onclick="navClick('anibi',loadAnibi)">Jadwal</button>
   </div>
 </header>
@@ -193,5 +195,6 @@
 <script src="app.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat app.js')"></script>
 <script src="comic.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat comic.js')"></script>
 <script src="drama.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat drama.js')"></script>
+<script src="nkvideo.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat nkvideo.js')"></script>
 </body>
 </html>
