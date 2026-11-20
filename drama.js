@@ -9,10 +9,10 @@ function dramaWriteStore(key,items){try{localStorage.setItem(key,JSON.stringify(
 function dramaLocalHistory(){return dramaReadStore(DRAMA_HISTORY_KEY)}
 function dramaLocalBookmarks(){return dramaReadStore(DRAMA_BOOKMARKS_KEY)}
 function dramaSkeleton(gen){setView(gen,`<section class="section"><span class="comic-skeleton sk-title"></span><div class="grid">${Array.from({length:12},()=>'<div class="comic-skeleton sk-card"></div>').join('')}</div></section>`)}
-function dramaError(gen,e){setView(gen,`<div class="empty comic-error"><strong>Drama belum bisa dimuat.</strong><p>${esc(e.message)}</p><button class="btn btn-secondary" onclick="loadDramaHome()">Coba Lagi</button></div>`)}
+function dramaError(gen,e){setView(gen,`<div class="empty comic-error"><strong>Drama/Film belum bisa dimuat.</strong><p>${esc(e.message)}</p><button class="btn btn-secondary" onclick="loadDramaHome()">Coba Lagi</button></div>`)}
 function dramaCard(it){
   const meta=[it.year,it.country,it.latest_episode||(it.total_episodes?`${it.total_episodes} episode`:'')].filter(Boolean).join(' · ');
-  const badge=it.format?`<span class="comic-card-kind">${esc(it.format)}</span>`:'';
+  const badge=it.format?`<span class="comic-card-kind">${esc(it.format==='Movie'?'Film':'Drama')}</span>`:'';
   return `<article class="card comic-card" data-slug="${esc(it.slug)}" onclick="loadDramaDetail(this.dataset.slug)">
     <div class="poster">${comicImg(it.cover,it.title)}${badge}</div>
     <div class="card-body">
@@ -33,7 +33,7 @@ function dramaContinueCard(h){
   </article>`;
 }
 function dramaSearchBar(q=''){
-  return `<div class="comic-search-bar"><input id="dramaSearchInput" type="search" value="${esc(q)}" placeholder="Cari drama / film Asia..." onkeydown="if(event.key==='Enter')loadDramaSearch()"><button class="btn btn-primary" onclick="loadDramaSearch()">Cari Drama</button></div>`;
+  return `<div class="comic-search-bar"><input id="dramaSearchInput" type="search" value="${esc(q)}" placeholder="Cari drama / film Asia..." onkeydown="if(event.key==='Enter')loadDramaSearch()"><button class="btn btn-primary" onclick="loadDramaSearch()">Cari</button></div>`;
 }
 async function dramaFilters(){
   if(window.__dramaFilters)return window.__dramaFilters;
@@ -79,7 +79,7 @@ async function dramaAccountRails(){
 }
 async function loadDramaHome(page=1,country='',format='',genre=''){
   setActiveNav('drama');
-  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder='Cari drama...');
+  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder='Cari drama / film...');
   const gen=view('loadDramaHome',[page,country,format,genre]);
   dramaSkeleton(gen);
   try{
@@ -119,7 +119,7 @@ async function loadDramaSearch(forcedQ,page=1){
     const items=data.items||[];
     document.title=`Cari ${q} · NanoStream Drama`;
     setView(gen,`<section class="section">
-      ${head(`Drama "${esc(q)}"`,`${data.total||0} judul ditemukan`,'loadDramaHome()')}
+      ${head(`Drama/Film "${esc(q)}"`,`${data.total||0} judul ditemukan`,'loadDramaHome()')}
       ${dramaSearchBar(q)}
       ${dramaPager(page,data.pages,{q})}
       ${items.length?`<div class="grid">${items.map(dramaCard).join('')}</div>`:'<div class="empty">Tidak ada drama yang cocok.</div>'}

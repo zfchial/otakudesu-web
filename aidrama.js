@@ -137,8 +137,10 @@ function aiAttach(i){
   const src=`${API}/aidrama/hls?url=${encodeURIComponent(s.url)}`;
   if(window.Hls&&Hls.isSupported()){
     aiState.hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});
+    aiState.hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal)showToast?.('Player: '+(d.details||d.type))});
     aiState.hls.loadSource(src);
     aiState.hls.attachMedia(v);
+    v.play().catch(()=>{});
   }else if(v.canPlayType('application/vnd.apple.mpegurl')){
     v.src=s.url;
   }else{
