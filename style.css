@@ -3131,7 +3131,18 @@ body.comic-fs-lock {
 }
 
 .comic-reader-wrap.tools-hidden .comic-reader-head,
-.comic-reader-wrap.tools-hidden .comic-reader-tools { display: none; }
+.comic-reader-wrap.tools-hidden .comic-reader-tools {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.comic-reader-head, .comic-reader-tools { transition: opacity .18s var(--ease); }
+.comic-chapter-num { display: inline-flex; align-items: center; gap: 4px; }
+.comic-chapter-num input {
+  width: 88px; padding: 6px 8px; border-radius: var(--radius);
+  border: 1px solid var(--line-strong); background: var(--surface2);
+  color: var(--text); font: inherit;
+}
 .comic-tools-fab {
   position: fixed; top: 76px; right: 12px; z-index: 90;
   width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;
