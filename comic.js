@@ -1,6 +1,9 @@
 const comicState={url:'',title:'',cover:'',chapters:[],page:0,series:'',readerUrl:'',readerObserver:null,saveTimer:null,images:[],chapterTitle:''};
 const COMIC_HISTORY_KEY='nanostream-comic-history-v1';
 const COMIC_BOOKMARKS_KEY='nanostream-comic-bookmarks-v1';
+const isDoujinUrl=u=>/https?:\/\/([^/]*\.)?(desu\.xxx|desu\.pics|doujindesu\.tv)/i.test(u||'');
+function comicImgProxy(url){return API+(isDoujinUrl(url)?'/doujin/image?url=':'/komik/image?url=')+encodeURIComponent(url)}
+function comicSourceTabs(active){return `<div class="comic-filters"><div class="comic-kind-tabs"><button class="comic-kind${active==='komik'?' active':''}" onclick="loadComicHome()">Komikindo</button><button class="comic-kind${active==='doujin'?' active':''}" onclick="loadComicDoujin()">Doujindesu</button></div></div>`}
 
 function comicReaderSkeleton(){
   return `<section class="section comic-reader-head"><span class="comic-skeleton sk-back"></span><span class="comic-skeleton sk-title"></span></section><div class="comic-reader-tools"><span class="comic-skeleton sk-tools"></span></div><div class="comic-reader"><div class="comic-skeleton sk-page"></div><div class="comic-skeleton sk-page"></div></div>`;
@@ -16,6 +19,7 @@ function comicShowSkeleton(gen,reader=false){
 
 function comicImg(src,title){
   if(!src)return fallback;
+  if(isDoujinUrl(src))src=comicImgProxy(src);
   return `<img src="${esc(src)}" alt="${esc(title||'')}" title="${esc(title||'')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${fallback}'">`;
 }
 
@@ -188,6 +192,7 @@ async function loadComicHome(kind='',sort='latest'){
     document.title='Komik Bahasa Indonesia · NanoStream';
     setView(gen,`<section class="section">
       ${head('Komik Bahasa Indonesia','Manga, manhwa, dan manhua bahasa Indonesia','loadComicSearch()')}
+      ${comicSourceTabs('komik')}
       ${comicSearchBar()}
       ${history.length?`${head('Lanjut Baca','Tersimpan otomatis di perangkat ini')}<div class="rail comic-history-rail">${history.slice(0,12).map(comicContinueCard).join('')}</div>`:''}
       ${saved.length?`${head('Komik Tersimpan','Daftar bacaan di perangkat ini')}<div class="rail">${saved.slice(0,12).map(c=>comicCard({...c,chapters:[],genres:[]})).join('')}</div>`:''}
@@ -211,6 +216,60 @@ async function loadComicSearch(forcedQ){
   }catch(e){comicError(gen,e)}
 }
 
+function comicDoujinSearchBar(q=''){
+  return `<div class="comic-search-bar"><input id="comicDoujinSearchInput" type="search" value="${esc(q)}" placeholder="Cari judul doujin / manhwa..." onkeydown="if(event.key==='Enter')loadComicDoujinSearch()"><button class="btn btn-primary" onclick="loadComicDoujinSearch()">Cari Doujin</button></div>`;
+}
+
+function doujinPager(page,count,sort,kind,q=''){
+  const prev=q?`loadComicDoujinSearch(this.dataset.q,${page-1})`:`loadComicDoujin(${page-1},'${sort}','${kind}')`;
+  const next=q?`loadComicDoujinSearch(this.dataset.q,${page+1})`:`loadComicDoujin(${page+1},'${sort}','${kind}')`;
+  return `<div class="comic-pager">${page>1?`<button class="btn btn-secondary" data-q="${esc(q)}" onclick="${prev}">&#8592; Sebelumnya</button>`:'<span></span>'}<span class="comic-pager-info">Halaman ${page}</span>${count>=24?`<button class="btn btn-secondary" data-q="${esc(q)}" onclick="${next}">Berikutnya &#8594;</button>`:'<span></span>'}</div>`;
+}
+
+async function loadComicDoujin(page=1,sort='latest',kind=''){
+  setActiveNav('comic');
+  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder='Cari komik...');
+  const gen=view('loadComicDoujin',[page,sort,kind]);
+  comicShowSkeleton(gen);
+  try{
+    const d=await api(`/doujin/${sort==='rating'?'popular':'latest'}?page=${page}&limit=24`);
+    if(stale(gen))return;
+    const items=comicFilterItems((d.data&&d.data.items)||[],kind,'latest');
+    document.title='Doujindesu · NanoStream Komik';
+    setView(gen,`<section class="section">
+      ${head('Doujindesu','Doujinshi & manhwa subtitle Indonesia','loadComicHome()')}
+      ${comicSourceTabs('doujin')}
+      ${comicDoujinSearchBar()}
+      <div class="comic-filters"><div class="comic-kind-tabs">${['','doujinshi','manhwa','manga'].map(k=>`<button class="comic-kind${kind===k?' active':''}" onclick="loadComicDoujin(1,'${sort}','${k}')">${k?k[0].toUpperCase()+k.slice(1):'Semua Tipe'}</button>`).join('')}</div><label class="comic-sort">Urutkan<select onchange="loadComicDoujin(1,this.value,'${kind}')"><option value="latest"${sort!=='rating'?' selected':''}>Terbaru</option><option value="rating"${sort==='rating'?' selected':''}>Terpopuler</option></select></label></div>
+      ${doujinPager(page,items.length,sort,kind)}
+      ${items.length?`<div class="grid">${items.map(comicCard).join('')}</div>`:'<div class="empty">Tidak ada judul untuk filter ini.</div>'}
+      ${doujinPager(page,items.length,sort,kind)}
+    </section>`);
+  }catch(e){comicError(gen,e)}
+}
+
+async function loadComicDoujinSearch(forcedQ,page=1){
+  const q=(forcedQ??document.getElementById('comicDoujinSearchInput')?.value??'').trim();
+  if(!q)return loadComicDoujin();
+  setActiveNav('comic');
+  const gen=view('loadComicDoujinSearch',[q,page]);
+  comicShowSkeleton(gen);
+  try{
+    const d=await api(`/doujin/search?q=${encodeURIComponent(q)}&page=${page}&limit=24`);
+    if(stale(gen))return;
+    const items=(d.data&&d.data.items)||[];
+    document.title=`Cari ${q} · Doujindesu · NanoStream`;
+    setView(gen,`<section class="section">
+      ${head(`Doujin "${esc(q)}"`,`${items.length} judul ditemukan`,'loadComicDoujin()')}
+      ${comicSourceTabs('doujin')}
+      ${comicDoujinSearchBar(q)}
+      ${doujinPager(page,items.length,'latest','',q)}
+      ${items.length?`<div class="grid">${items.map(comicCard).join('')}</div>`:'<div class="empty">Tidak ada doujin yang cocok.</div>'}
+      ${doujinPager(page,items.length,'latest','',q)}
+    </section>`);
+  }catch(e){comicError(gen,e)}
+}
+
 async function loadComicDetail(url){
   if(!url)return;
   setActiveNav('comic');
@@ -218,15 +277,17 @@ async function loadComicDetail(url){
   comicBatch.sel.clear();
   const gen=view('loadComicDetail',[url]);
   try{
-    const d=await api(`/komik/detail?url=${encodeURIComponent(url)}`);
+    const dj=isDoujinUrl(url);
+    const d=await api(`${dj?'/doujin':'/komik'}/detail?url=${encodeURIComponent(url)}`);
     const c=d.data||{};
+    if(dj&&c.cover)c.cover=comicImgProxy(c.cover);
     comicState.url=url;
     comicState.title=c.title||'';
     comicState.cover=c.cover||'';
     comicState.chapters=c.chapters||[];
     const history=comicHistoryFor(url);
     const saved=comicIsSaved(url);
-    const genres=(c.genres||[]).map(g=>`<button class="chip comic-genre-chip" data-slug="${esc(g.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))}" onclick="loadComicGenre(this.dataset.slug)">${esc(g)}</button>`).join('');
+    const genres=(c.genres||[]).map(g=>dj?`<span class="chip comic-genre-chip">${esc(g)}</span>`:`<button class="chip comic-genre-chip" data-slug="${esc(g.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))}" onclick="loadComicGenre(this.dataset.slug)">${esc(g)}</button>`).join('');
     const chapters=c.chapters?.length?`<div class="comic-batch-tools"><button class="btn btn-secondary" id="comicBatchToggle" onclick="comicBatchToggle()">Unduh Batch</button><span class="comic-batch-hint">Pilih beberapa chapter untuk diunduh sekaligus</span></div><div class="comic-batch-panel hidden" id="comicBatchPanel"><button class="btn btn-secondary" onclick="comicBatchSelectAll()">Pilih Semua</button><button class="btn btn-secondary" onclick="comicBatchClear()">Bersihkan</button><span class="comic-batch-count" id="comicBatchCount">0 dipilih</span><button class="btn btn-primary" id="comicBatchGo" onclick="comicBatchDownload()" disabled>Unduh ZIP</button></div><div class="comic-chapters" id="comicChapterList">${c.chapters.map(ch=>`<a class="comic-chapter" href="#" data-url="${esc(ch.url)}" onclick="return comicChapterClick(this)"><span class="cc-num">${esc(ch.title)}</span><span class="cc-date">${esc(ch.date||'')}</span></a>`).join('')}</div>`:'<div class="empty">Daftar chapter belum tersedia.</div>';
     const meta=[c.kind,c.status,c.author?`Pengarang: ${c.author}`:'',c.released?`Rilis: ${c.released}`:''].filter(Boolean).join(' · ');
     const latest=c.chapters?.[0];
@@ -306,7 +367,7 @@ function comicImageRetry(btn){
   const img=btn.parentElement.querySelector('img');
   if(!img)return;
   const original=img.dataset.src||img.src;
-  const proxied=API+'/komik/image?url='+encodeURIComponent(original);
+  const proxied=comicImgProxy(original);
   const src=img.dataset.proxy==='1'?proxied+(proxied.includes('?')?'&':'?')+'retry='+Date.now():proxied;
   img.dataset.proxy='1';
   btn.classList.add('hidden');
@@ -339,10 +400,12 @@ async function loadComicReader(url,startPage=1){
   const gen=view('loadComicReader',[url,startPage]);
   comicShowSkeleton(gen,true);
   try{
-    const d=await api(`/komik/reader?url=${encodeURIComponent(url)}`);
+    const dj=isDoujinUrl(url);
+    const d=await api(`${dj?'/doujin':'/komik'}/reader?url=${encodeURIComponent(url)}`);
     const r=d.data||{};
     if(stale(gen))return;
     const imgs=r.images||[];
+    if(dj)imgs.forEach(im=>{im.url=comicImgProxy(im.url)});
     comicState.readerUrl=url;
     comicState.series=r.series||comicState.url;
     comicState.chapterTitle=r.title||'';
@@ -518,7 +581,7 @@ function comicSaveBlob(blob,name){
 }
 
 async function comicFetchBytes(url){
-  const proxied=API+'/komik/image?url='+encodeURIComponent(url);
+  const proxied=comicImgProxy(url);
   for(let attempt=0;attempt<2;attempt++){
     try{
       const r=await fetch(attempt?proxied+'&retry='+Date.now():proxied);
@@ -721,7 +784,7 @@ async function comicBatchDownload(){
       comicDlProgress(doneCh,sel.length,`Chapter ${doneCh+1}/${sel.length}: ${ch.title}`);
       let r;
       try{
-        r=await comicApiQuiet(`/komik/reader?url=${encodeURIComponent(ch.url)}`);
+        r=await comicApiQuiet(`${isDoujinUrl(ch.url)?'/doujin':'/komik'}/reader?url=${encodeURIComponent(ch.url)}`);
       }catch(e){
         failedCh++;
         doneCh++;
