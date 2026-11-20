@@ -1,11 +1,12 @@
-const CACHE_SHELL='nanostream-shell-v23';
-const CACHE_DATA='nanostream-data-v23';
+const CACHE_SHELL='nanostream-shell-v24';
+const CACHE_DATA='nanostream-data-v24';
 const SHELL=[
   './',
   './index.html',
   './style.css',
   './app.js',
   './comic.js',
+  './drama.js',
   './manifest.webmanifest',
   './icons/favicon-32.png',
   './icons/apple-touch-icon.png',

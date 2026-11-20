@@ -9,6 +9,7 @@ let deferredInstallPrompt=null;
 let authToken=localStorage.getItem('nanostream-token')||'';
 let activeSearchSource='otakudesu';
 let comicMode=false;
+let dramaMode=false;
 let scheduleDaysCache=[];
 
 const fallback='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 4"><rect width="3" height="4" fill="#18181b"/></svg>');
@@ -68,6 +69,7 @@ function setActiveNav(key){
 function navClick(key,fn){
   closeSearchSheet();
   comicMode=key==='comic';
+  dramaMode=key==='drama';
   setActiveNav(key);
   scrollTo(0,0);
   fn();
@@ -144,6 +146,7 @@ function mobileSearchGo(){
   if(desk)desk.value=q;
   closeSearchSheet();
   if(comicMode)return loadComicSearch(q);
+  if(dramaMode)return loadDramaSearch(q);
   setActiveNav('');
   if(activeSearchSource==='samehadaku')return shSearch(q);
   if(activeSearchSource==='anibi')return anibiSearch(q);
@@ -192,7 +195,8 @@ function view(name,args=[]){
   const state={nanostream:true,name,args};
   if(restoring)return renderGen;
   comicMode=name.startsWith('loadComic');
-  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder=comicMode?'Cari komik...':'Cari anime...');
+  dramaMode=name.startsWith('loadDrama');
+  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder=comicMode?'Cari komik...':dramaMode?'Cari drama...':'Cari anime...');
   const url=viewUrl(name,args);
   if(firstView){
     history.replaceState(state,'',url);
@@ -210,7 +214,8 @@ function restore(state){
   if(!state?.nanostream)return;
   restoring=true;
   comicMode=state.name.startsWith('loadComic');
-  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder=comicMode?'Cari komik...':'Cari anime...');
+  dramaMode=state.name.startsWith('loadDrama');
+  document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder=comicMode?'Cari komik...':dramaMode?'Cari drama...':'Cari anime...');
   closeSearchSheet();
   const fn=window[state.name];
   if(typeof fn==='function')fn(...(state.args||[]));
@@ -833,6 +838,10 @@ function searchGo(){
   if(comicMode){
     const q=document.getElementById('searchInput')?.value.trim()||'';
     return loadComicSearch(q);
+  }
+  if(dramaMode){
+    const q=document.getElementById('searchInput')?.value.trim()||'';
+    return loadDramaSearch(q);
   }
   const s=document.getElementById('searchSource');
   const v=s?s.value:activeSearchSource;

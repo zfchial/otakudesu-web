@@ -7,6 +7,95 @@ function comicIsAdmin(){return localStorage.getItem('nanostream-role')==='admin'
 async function refreshComicRole(){if(!authToken){localStorage.removeItem('nanostream-role');return}try{const p=await authApi('/profile');localStorage.setItem('nanostream-role',p.data?.role||'user')}catch(e){}}
 function comicSourceTabs(active){return `<div class="comic-filters"><div class="comic-kind-tabs"><button class="comic-kind${active==='komik'?' active':''}" onclick="loadComicHome()">Komikindo</button>${comicIsAdmin()?`<button class="comic-kind${active==='doujin'?' active':''}" onclick="loadComicDoujin()">Doujindesu</button>`:''}</div></div>`}
 function comicAdminLocked(gen){setView(gen,`<div class="empty comic-error"><strong>Doujindesu khusus admin.</strong><p>Masuk dengan akun admin untuk membuka sumber ini.</p><button class="btn btn-primary" onclick="showAuth()">Masuk</button> <button class="btn btn-secondary" onclick="loadComicHome()">Kembali ke Komik</button></div>`)}
+const COMIC_CHAPTER_FAVS_KEY='nanostream-comic-chapter-favs-v1';
+const comicStarSvg='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+function comicChapterFavs(){return comicReadStore(COMIC_CHAPTER_FAVS_KEY)}
+function comicWriteFavs(items){comicWriteStore(COMIC_CHAPTER_FAVS_KEY,items)}
+function comicIsChapterFav(url){return comicChapterFavs().some(x=>x.url===url)}
+function comicFavPayload(x){return{chapter_url:x.url,series_url:x.series||'',series_title:x.title||'',chapter_title:x.chapter||x.chapterTitle||'',cover:x.cover||''}}
+async function comicSyncAccount(){
+  if(!authToken)return;
+  try{
+    const [b,h,f]=await Promise.all([
+      authApi('/comic/bookmarks').catch(()=>null),
+      authApi('/comic/history').catch(()=>null),
+      authApi('/comic/chapter-favs').catch(()=>null)
+    ]);
+    if(b&&Array.isArray(b.data)){
+      const merged=b.data.map(x=>({url:x.url,title:x.title,cover:x.cover||'',savedAt:Date.parse(x.created_at)||Date.now()}));
+      for(const x of comicBookmarks()){
+        if(!merged.some(y=>y.url===x.url)){merged.push(x);authApi('/comic/bookmarks','POST',{url:x.url,title:x.title,cover:x.cover}).catch(()=>{})}
+      }
+      comicWriteStore(COMIC_BOOKMARKS_KEY,merged);
+    }
+    if(h&&Array.isArray(h.data)){
+      const merged=h.data.map(x=>({url:x.url,series:x.series||'',title:x.title,chapter:x.chapter_title||'',cover:x.cover||'',page:x.page||1,total:x.total||1,updatedAt:Date.parse(x.updated_at)||Date.now()}));
+      for(const x of comicHistory()){
+        const hit=merged.find(y=>y.url===x.url);
+        const payload={url:x.url,series:x.series,title:x.title,cover:x.cover,chapter_title:x.chapter,page:x.page||1,total:x.total||0};
+        if(!hit){merged.push(x);authApi('/comic/history','POST',payload).catch(()=>{})}
+        else if((x.updatedAt||0)>(hit.updatedAt||0)){Object.assign(hit,x);authApi('/comic/history','POST',payload).catch(()=>{})}
+      }
+      merged.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+      comicWriteStore(COMIC_HISTORY_KEY,merged);
+    }
+    if(f&&Array.isArray(f.data)){
+      const merged=f.data.map(x=>({url:x.chapter_url,series:x.series_url||'',title:x.series_title||'',chapter:x.chapter_title||'',cover:x.cover||'',savedAt:Date.parse(x.created_at)||Date.now()}));
+      for(const x of comicChapterFavs()){
+        if(!merged.some(y=>y.url===x.url)){merged.push(x);authApi('/comic/chapter-favs','POST',comicFavPayload(x)).catch(()=>{})}
+      }
+      comicWriteFavs(merged);
+    }
+  }catch(e){}
+}
+function comicPushHistory(item){
+  if(!authToken||!item)return;
+  const now=Date.now();
+  if(now-(comicState.lastHistSync||0)<5000)return;
+  comicState.lastHistSync=now;
+  authApi('/comic/history','POST',{url:item.url,series:item.series,title:item.title,cover:item.cover,chapter_title:item.chapter,page:item.page||1,total:item.total||0}).catch(()=>{});
+}
+function comicToggleChapterFav(btn){
+  const url=btn.dataset.url;
+  if(!url)return;
+  const items=comicChapterFavs();
+  const idx=items.findIndex(x=>x.url===url);
+  const removing=idx>=0;
+  const entry={url,series:btn.dataset.series||comicState.url||'',title:btn.dataset.seriesTitle||comicState.title||'',chapter:btn.dataset.title||comicState.chapterTitle||'',cover:btn.dataset.cover||comicState.cover||'',savedAt:Date.now()};
+  if(removing)items.splice(idx,1);
+  else items.unshift(entry);
+  comicWriteFavs(items);
+  if(authToken){
+    if(removing)authApi(`/comic/chapter-favs/remove?url=${encodeURIComponent(url)}`,'DELETE').catch(()=>{});
+    else authApi('/comic/chapter-favs','POST',comicFavPayload(entry)).catch(()=>{});
+  }
+  document.querySelectorAll('.cc-fav').forEach(b=>{if(b.dataset.url===url)b.classList.toggle('active',!removing)});
+  const rb=document.getElementById('comicReaderFavBtn');
+  if(rb&&rb.dataset.url===url){rb.classList.toggle('active',!removing);rb.innerHTML=`${comicStarSvg}<span>${removing?'Favoritkan Chapter':'Chapter Difavoritkan'}</span>`}
+  showToast(removing?'Chapter dihapus dari favorit':'Chapter difavoritkan');
+}
+function comicFavCard(x){
+  return `<article class="card comic-continue-card" data-url="${esc(x.url||'')}" onclick="loadComicReader(this.dataset.url)">
+    <div class="poster">${comicImg(x.cover,x.title)}<span class="poster-badge">${comicStarSvg}</span></div>
+    <div class="card-body"><div class="card-title" title="${esc(x.title||'')}">${esc(x.title||'Komik')}</div><div class="meta">${esc(x.chapter||'Chapter')}</div></div>
+  </article>`;
+}
+let comicLastScrollY=0;
+window.addEventListener('scroll',()=>{
+  const wrap=document.getElementById('comicReaderWrap');
+  if(!wrap)return;
+  const y=window.scrollY;
+  const dy=y-comicLastScrollY;
+  comicLastScrollY=y;
+  if(dy>10&&y>220&&!comicState.toolsPinned)wrap.classList.add('tools-hidden');
+  else if(dy<-10){wrap.classList.remove('tools-hidden');comicState.toolsPinned=false}
+},{passive:true});
+function comicToggleTools(){
+  const wrap=document.getElementById('comicReaderWrap');
+  if(!wrap)return;
+  const hidden=wrap.classList.toggle('tools-hidden');
+  comicState.toolsPinned=!hidden;
+}
 
 function comicReaderSkeleton(){
   return `<section class="section comic-reader-head"><span class="comic-skeleton sk-back"></span><span class="comic-skeleton sk-title"></span></section><div class="comic-reader-tools"><span class="comic-skeleton sk-tools"></span></div><div class="comic-reader"><div class="comic-skeleton sk-page"></div><div class="comic-skeleton sk-page"></div></div>`;
@@ -48,9 +137,13 @@ function comicToggleBookmark(){
   const saved=items.length!==comicBookmarks().length;
   if(!saved)items.unshift({url:comicState.url,title:comicState.title,cover:comicState.cover,savedAt:Date.now()});
   comicWriteStore(COMIC_BOOKMARKS_KEY,items);
+  if(authToken){
+    if(saved)authApi(`/comic/bookmarks/remove?url=${encodeURIComponent(comicState.url)}`,'DELETE').catch(()=>{});
+    else authApi('/comic/bookmarks','POST',{url:comicState.url,title:comicState.title,cover:comicState.cover}).catch(()=>{});
+  }
   const btn=document.getElementById('comicBookmarkBtn');
   if(btn)btn.textContent=saved?'+ Simpan Komik':'Tersimpan';
-  showToast(saved?'Komik dihapus dari daftar':'Komik disimpan di perangkat ini');
+  showToast(saved?'Komik dihapus dari daftar':(authToken?'Komik disimpan ke akun':'Komik disimpan di perangkat ini'));
 }
 
 function comicSaveProgress(page,total){
@@ -67,6 +160,7 @@ function comicSaveProgress(page,total){
     updatedAt:Date.now()
   });
   comicWriteStore(COMIC_HISTORY_KEY,items);
+  comicPushHistory(items[0]);
 }
 
 function comicContinue(item){
@@ -186,12 +280,13 @@ async function loadComicHome(kind='',sort='latest'){
   const gen=view('loadComicHome',[kind,sort]);
   comicShowSkeleton(gen);
   try{
-    const [d,gd]=await Promise.all([api('/komik/home'),api('/komik/genres').catch(()=>({data:{genres:[]}})),refreshComicRole()]);
+    const [d,gd]=await Promise.all([api('/komik/home'),api('/komik/genres').catch(()=>({data:{genres:[]}})),refreshComicRole(),comicSyncAccount()]);
     if(stale(gen))return;
     const items=comicFilterItems((d.data&&d.data.items)||[],kind,sort);
     const genres=(gd.data&&gd.data.genres)||[];
     const history=comicHistory();
     const saved=comicBookmarks();
+    const favs=comicChapterFavs();
     document.title='Komik Bahasa Indonesia · NanoStream';
     setView(gen,`<section class="section">
       ${head('Komik Bahasa Indonesia','Manga, manhwa, dan manhua bahasa Indonesia','loadComicSearch()')}
@@ -199,6 +294,7 @@ async function loadComicHome(kind='',sort='latest'){
       ${comicSearchBar()}
       ${history.length?`${head('Lanjut Baca','Tersimpan otomatis di perangkat ini')}<div class="rail comic-history-rail">${history.slice(0,12).map(comicContinueCard).join('')}</div>`:''}
       ${saved.length?`${head('Komik Tersimpan','Daftar bacaan di perangkat ini')}<div class="rail">${saved.slice(0,12).map(c=>comicCard({...c,chapters:[],genres:[]})).join('')}</div>`:''}
+      ${favs.length?`${head('Chapter Favorit','Chapter yang kamu tandai bintang')}<div class="rail">${favs.slice(0,12).map(comicFavCard).join('')}</div>`:''}
       ${genres.length?`<div class="section-head comic-genre-head"><h2>Genre</h2><a href="#" onclick="loadComicGenres();return false">Semua &#8250;</a></div>${comicGenreChips(genres,null,12)}`:''}
       ${comicKindFilter(kind,sort)}
       ${items.length?`<div class="grid">${items.map(comicCard).join('')}</div>`:'<div class="empty">Tidak ada komik untuk filter ini.</div>'}
@@ -297,7 +393,7 @@ async function loadComicDetail(url){
     const history=comicHistoryFor(url);
     const saved=comicIsSaved(url);
     const genres=(c.genres||[]).map(g=>dj?`<span class="chip comic-genre-chip">${esc(g)}</span>`:`<button class="chip comic-genre-chip" data-slug="${esc(g.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))}" onclick="loadComicGenre(this.dataset.slug)">${esc(g)}</button>`).join('');
-    const chapters=c.chapters?.length?`<div class="comic-batch-tools"><button class="btn btn-secondary" id="comicBatchToggle" onclick="comicBatchToggle()">Unduh Batch</button><span class="comic-batch-hint">Pilih beberapa chapter untuk diunduh sekaligus</span></div><div class="comic-batch-panel hidden" id="comicBatchPanel"><button class="btn btn-secondary" onclick="comicBatchSelectAll()">Pilih Semua</button><button class="btn btn-secondary" onclick="comicBatchClear()">Bersihkan</button><span class="comic-batch-count" id="comicBatchCount">0 dipilih</span><button class="btn btn-primary" id="comicBatchGo" onclick="comicBatchDownload()" disabled>Unduh ZIP</button></div><div class="comic-chapters" id="comicChapterList">${c.chapters.map(ch=>`<a class="comic-chapter" href="#" data-url="${esc(ch.url)}" onclick="return comicChapterClick(this)"><span class="cc-num">${esc(ch.title)}</span><span class="cc-date">${esc(ch.date||'')}</span></a>`).join('')}</div>`:'<div class="empty">Daftar chapter belum tersedia.</div>';
+    const chapters=c.chapters?.length?`<div class="comic-batch-tools"><button class="btn btn-secondary" id="comicBatchToggle" onclick="comicBatchToggle()">Unduh Batch</button><span class="comic-batch-hint">Pilih beberapa chapter untuk diunduh sekaligus</span></div><div class="comic-batch-panel hidden" id="comicBatchPanel"><button class="btn btn-secondary" onclick="comicBatchSelectAll()">Pilih Semua</button><button class="btn btn-secondary" onclick="comicBatchClear()">Bersihkan</button><span class="comic-batch-count" id="comicBatchCount">0 dipilih</span><button class="btn btn-primary" id="comicBatchGo" onclick="comicBatchDownload()" disabled>Unduh ZIP</button></div><div class="comic-chapters" id="comicChapterList">${c.chapters.map(ch=>`<a class="comic-chapter" href="#" data-url="${esc(ch.url)}" onclick="return comicChapterClick(this)"><button class="cc-fav${comicIsChapterFav(ch.url)?' active':''}" data-url="${esc(ch.url)}" data-title="${esc(ch.title)}" data-series="${esc(url)}" data-series-title="${esc(c.title||'')}" data-cover="${esc(c.cover||'')}" title="Favoritkan chapter" onclick="event.stopPropagation();comicToggleChapterFav(this);return false">${comicStarSvg}</button><span class="cc-num">${esc(ch.title)}</span><span class="cc-date">${esc(ch.date||'')}</span></a>`).join('')}</div>`:'<div class="empty">Daftar chapter belum tersedia.</div>';
     const meta=[c.kind,c.status,c.author?`Pengarang: ${c.author}`:'',c.released?`Rilis: ${c.released}`:''].filter(Boolean).join(' · ');
     const latest=c.chapters?.[0];
     const first=c.chapters?.[c.chapters.length-1];
@@ -416,6 +512,7 @@ async function loadComicReader(url,startPage=1){
     const imgs=r.images||[];
     if(dj)imgs.forEach(im=>{im.url=comicImgProxy(im.url)});
     comicState.readerUrl=url;
+    comicState.toolsPinned=false;
     comicState.series=r.series||comicState.url;
     comicState.chapterTitle=r.title||'';
     comicState.images=imgs.map(im=>im.url);
@@ -425,15 +522,30 @@ async function loadComicReader(url,startPage=1){
     const width=Number(settings.width)||820;
     const mode=settings.mode||'vertical';
     const pages=imgs.map((im,i)=>`<figure class="comic-page${i===initial-1?' current':''}" data-page="${i+1}" id="comic-page-${i+1}"><img data-src="${esc(im.url)}" src="${esc(im.url)}" alt="Halaman ${im.page||i+1}" loading="${i<3?'eager':'lazy'}" decoding="async" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><button class="comic-image-error hidden" onclick="comicImageRetry(this)">Gambar gagal dimuat. Coba lagi</button><figcaption>${im.page||i+1} / ${im.total||imgs.length}</figcaption></figure>`).join('');
+    const chs=(comicState.chapters||[]).some(x=>x.url===url)?comicState.chapters:[];
+    const ci=chs.findIndex(x=>x.url===url);
+    const chPrev=ci>=0&&ci<chs.length-1?chs[ci+1]:null;
+    const chNext=ci>0?chs[ci-1]:null;
+    const prevUrl=r.prev||chPrev?.url||'';
+    const nextUrl=r.next||chNext?.url||'';
+    const chOpts=chs.map(x=>`<option value="${esc(x.url)}"${x.url===url?' selected':''}>${esc(x.title)}</option>`).join('');
+    const fav=comicIsChapterFav(url);
     document.title=`${r.title||'Baca Komik'} · NanoStream`;
     setView(gen,`
       <div id="comicReaderWrap" class="comic-reader-wrap">
+      <button class="comic-tools-fab" onclick="comicToggleTools()" title="Sembunyikan / tampilkan pengaturan baca" aria-label="Toggle pengaturan baca"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></button>
       <section class="section comic-reader-head">
         <button class="btn btn-secondary" onclick="comicBack()">&#8592; Kembali</button>
         <h2>${esc(r.title||'Reader Komik')}</h2>
         <span class="reader-count">${imgs.length} halaman</span>
       </section>
       <div class="comic-reader-tools">
+        <div class="comic-tool-group comic-chapter-jump">
+          ${chs.length?`<label class="comic-sort">Loncat Chapter<select id="comicChapterSelect" onchange="loadComicReader(this.value)">${chOpts}</select></label>`:''}
+          ${prevUrl?`<button class="comic-mode" data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)">&#8592; Ch. Sebelumnya</button>`:''}
+          ${nextUrl?`<button class="comic-mode" data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)">Ch. Berikutnya &#8594;</button>`:''}
+          <button class="comic-mode cc-fav-reader${fav?' active':''}" id="comicReaderFavBtn" data-url="${esc(url)}" data-title="${esc(r.title||'')}" data-series="${esc(r.series||comicState.url||'')}" data-series-title="${esc(comicState.title||'')}" data-cover="${esc(comicState.cover||'')}" onclick="comicToggleChapterFav(this)">${comicStarSvg}<span>${fav?'Chapter Difavoritkan':'Favoritkan Chapter'}</span></button>
+        </div>
         <div class="comic-tool-group"><button class="comic-mode${mode!=='single'?' active':''}" data-mode="vertical" onclick="comicSetMode('vertical')">Vertikal</button><button class="comic-mode${mode==='single'?' active':''}" data-mode="single" onclick="comicSetMode('single')">Per Halaman</button></div>
         <div class="comic-tool-group"><button class="comic-width${width===640?' active':''}" data-width="640" onclick="comicSetWidth(640)">Sempit</button><button class="comic-width${width===820?' active':''}" data-width="820" onclick="comicSetWidth(820)">Sedang</button><button class="comic-width${width===1100?' active':''}" data-width="1100" onclick="comicSetWidth(1100)">Lebar</button></div>
         <div class="comic-tool-group"><button class="comic-mode" id="comicFsBtn" onclick="comicToggleFullscreen()">Layar Penuh</button><button class="comic-mode" onclick="comicDownloadChapter()">Unduh Chapter</button></div>
