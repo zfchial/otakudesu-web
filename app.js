@@ -226,7 +226,7 @@ async function api(path,retry=1){
         const ctrl=new AbortController();
         const t=setTimeout(()=>ctrl.abort(),20000);
         let r;
-        try{r=await fetch(API+path,{signal:ctrl.signal})}finally{clearTimeout(t)}
+        try{r=await fetch(API+path,{signal:ctrl.signal,headers:authHeaders()})}finally{clearTimeout(t)}
         const d=await r.json();
         if(!d.ok)throw Error(d.error||`API ${r.status}`);
         return d;
@@ -279,6 +279,7 @@ async function authApi(path,method='GET',body){
     authToken='';
     localStorage.removeItem('nanostream-token');
     localStorage.removeItem('nanostream-user');
+    localStorage.removeItem('nanostream-role');
     updateAccount();
     showAuth();
     throw Error('Sesi berakhir, silakan login ulang');
@@ -359,6 +360,7 @@ async function loadAccount(){
     const d=p.data||{};
     const name=d.username||localStorage.getItem('nanostream-user')||'Pengguna';
     localStorage.setItem('nanostream-user',name);
+    localStorage.setItem('nanostream-role',d.role||'user');
     updateAccount();
     const joined=d.joined_at?String(d.joined_at).slice(0,10):'-';
     const total=d.total_watch_seconds||0;
@@ -423,6 +425,7 @@ async function loginUser(){
     authToken=d.token;
     localStorage.setItem('nanostream-token',authToken);
     localStorage.setItem('nanostream-user',document.getElementById('authUser').value.trim());
+    localStorage.setItem('nanostream-role',d.role||'user');
     updateAccount();
     showToast('Berhasil masuk');
     loadAccount();
@@ -440,6 +443,7 @@ async function registerUser(){
     authToken=d.token;
     localStorage.setItem('nanostream-token',authToken);
     localStorage.setItem('nanostream-user',document.getElementById('authUser').value.trim());
+    localStorage.setItem('nanostream-role',d.role||'user');
     updateAccount();
     showToast('Akun berhasil dibuat');
     loadAccount();
@@ -452,6 +456,7 @@ function logoutNow(){
   authToken='';
   localStorage.removeItem('nanostream-token');
   localStorage.removeItem('nanostream-user');
+  localStorage.removeItem('nanostream-role');
   updateAccount();
   showToast('Berhasil keluar dari akun');
   loadHome();

@@ -2,8 +2,11 @@ const comicState={url:'',title:'',cover:'',chapters:[],page:0,series:'',readerUr
 const COMIC_HISTORY_KEY='nanostream-comic-history-v1';
 const COMIC_BOOKMARKS_KEY='nanostream-comic-bookmarks-v1';
 const isDoujinUrl=u=>/https?:\/\/([^/]*\.)?(desu\.xxx|desu\.pics|doujindesu\.tv)/i.test(u||'');
-function comicImgProxy(url){return API+(isDoujinUrl(url)?'/doujin/image?url=':'/komik/image?url=')+encodeURIComponent(url)}
-function comicSourceTabs(active){return `<div class="comic-filters"><div class="comic-kind-tabs"><button class="comic-kind${active==='komik'?' active':''}" onclick="loadComicHome()">Komikindo</button><button class="comic-kind${active==='doujin'?' active':''}" onclick="loadComicDoujin()">Doujindesu</button></div></div>`}
+function comicImgProxy(url){if(isDoujinUrl(url))return API+'/doujin/image?url='+encodeURIComponent(url)+(authToken?'&token='+encodeURIComponent(authToken):'');return API+'/komik/image?url='+encodeURIComponent(url)}
+function comicIsAdmin(){return localStorage.getItem('nanostream-role')==='admin'}
+async function refreshComicRole(){if(!authToken){localStorage.removeItem('nanostream-role');return}try{const p=await authApi('/profile');localStorage.setItem('nanostream-role',p.data?.role||'user')}catch(e){}}
+function comicSourceTabs(active){return `<div class="comic-filters"><div class="comic-kind-tabs"><button class="comic-kind${active==='komik'?' active':''}" onclick="loadComicHome()">Komikindo</button>${comicIsAdmin()?`<button class="comic-kind${active==='doujin'?' active':''}" onclick="loadComicDoujin()">Doujindesu</button>`:''}</div></div>`}
+function comicAdminLocked(gen){setView(gen,`<div class="empty comic-error"><strong>Doujindesu khusus admin.</strong><p>Masuk dengan akun admin untuk membuka sumber ini.</p><button class="btn btn-primary" onclick="showAuth()">Masuk</button> <button class="btn btn-secondary" onclick="loadComicHome()">Kembali ke Komik</button></div>`)}
 
 function comicReaderSkeleton(){
   return `<section class="section comic-reader-head"><span class="comic-skeleton sk-back"></span><span class="comic-skeleton sk-title"></span></section><div class="comic-reader-tools"><span class="comic-skeleton sk-tools"></span></div><div class="comic-reader"><div class="comic-skeleton sk-page"></div><div class="comic-skeleton sk-page"></div></div>`;
@@ -183,7 +186,7 @@ async function loadComicHome(kind='',sort='latest'){
   const gen=view('loadComicHome',[kind,sort]);
   comicShowSkeleton(gen);
   try{
-    const [d,gd]=await Promise.all([api('/komik/home'),api('/komik/genres').catch(()=>({data:{genres:[]}}))]);
+    const [d,gd]=await Promise.all([api('/komik/home'),api('/komik/genres').catch(()=>({data:{genres:[]}})),refreshComicRole()]);
     if(stale(gen))return;
     const items=comicFilterItems((d.data&&d.data.items)||[],kind,sort);
     const genres=(gd.data&&gd.data.genres)||[];
@@ -231,6 +234,9 @@ async function loadComicDoujin(page=1,sort='latest',kind=''){
   document.querySelectorAll('#searchInput,#mobileSearchInput').forEach(i=>i.placeholder='Cari komik...');
   const gen=view('loadComicDoujin',[page,sort,kind]);
   comicShowSkeleton(gen);
+  await refreshComicRole();
+  if(stale(gen))return;
+  if(!comicIsAdmin())return comicAdminLocked(gen);
   try{
     const d=await api(`/doujin/${sort==='rating'?'popular':'latest'}?page=${page}&limit=24`);
     if(stale(gen))return;
@@ -254,6 +260,9 @@ async function loadComicDoujinSearch(forcedQ,page=1){
   setActiveNav('comic');
   const gen=view('loadComicDoujinSearch',[q,page]);
   comicShowSkeleton(gen);
+  await refreshComicRole();
+  if(stale(gen))return;
+  if(!comicIsAdmin())return comicAdminLocked(gen);
   try{
     const d=await api(`/doujin/search?q=${encodeURIComponent(q)}&page=${page}&limit=24`);
     if(stale(gen))return;
@@ -760,7 +769,7 @@ async function comicApiQuiet(path){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),20000);
   let r;
-  try{r=await fetch(API+path,{signal:ctrl.signal})}finally{clearTimeout(t)}
+  try{r=await fetch(API+path,{signal:ctrl.signal,headers:authHeaders()})}finally{clearTimeout(t)}
   const d=await r.json();
   if(!d.ok)throw Error(d.error||'API '+r.status);
   return d;
