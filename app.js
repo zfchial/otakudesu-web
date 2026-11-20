@@ -176,7 +176,7 @@ function viewUrl(name,args){
     if(mode==='genres')p.set('genre','all');
     if(mode==='home'){if(args[0])p.set('kind',args[0]);if(args[1]&&args[1]!=='latest')p.set('sort',args[1]);}
   }else{
-    const tabs={loadHome:'home',loadOngoing:'ongoing',loadComplete:'complete',loadGenres:'genres',loadSamehadakuHome:'samehadaku',loadAnibi:'anibi',loadNkHome:'nkvideo',loadNkCategory:'nkvideo',loadNkSearch:'nkvideo',loadNkDetail:'nkvideo',loadAccount:'account'};
+    const tabs={loadHome:'home',loadOngoing:'ongoing',loadComplete:'complete',loadGenres:'genres',loadSamehadakuHome:'samehadaku',loadAnibi:'anibi',loadNkHome:'nkvideo',loadNkCategory:'nkvideo',loadNkSearch:'nkvideo',loadNkDetail:'nkvideo',loadAiHome:'aidrama',loadAiSearch:'aidrama',loadAiDetail:'aidrama',loadAccount:'account'};
     if(tabs[name])p.set('tab',tabs[name]);
   }
   return u;
@@ -1346,6 +1346,7 @@ function flushPendingWatch(){
   else if(tab==='samehadaku')loadSamehadakuHome();
   else if(tab==='anibi')loadAnibi();
   else if(tab==='nkvideo')loadNkHome();
+  else if(tab==='aidrama')loadAiHome();
   else if(tab==='genres')loadGenres();
   else loadHome();
 })();

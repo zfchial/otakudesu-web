@@ -30,6 +30,7 @@
       <a href="#" data-nav="genres" onclick="navClick('genres',loadGenres);return false">Genres</a>
       <a href="#" data-nav="comic" onclick="navClick('comic',loadComicHome);return false">Komik</a>
       <a href="#" data-nav="drama" onclick="navClick('drama',loadDramaHome);return false">Drama</a>
+      <a href="#" data-nav="aidrama" onclick="navClick('aidrama',loadAiHome);return false">AI Drama</a>
       <a href="#" data-nav="samehadaku" onclick="navClick('samehadaku',loadSamehadakuHome);return false">Samehadaku</a>
       <a href="#" data-nav="nkvideo" data-admin-only class="hidden" onclick="navClick('nkvideo',loadNkHome);return false">Video</a>
       <a href="#" data-nav="anibi" data-needs-anibi class="hidden" onclick="navClick('anibi',loadAnibi);return false">Jadwal</a>
@@ -68,6 +69,7 @@
     <button data-pill="genres" class="pill" onclick="navClick('genres',loadGenres)">Genres</button>
     <button data-pill="comic" class="pill" onclick="navClick('comic',loadComicHome)">Komik</button>
     <button data-pill="drama" class="pill" onclick="navClick('drama',loadDramaHome)">Drama</button>
+    <button data-pill="aidrama" class="pill" onclick="navClick('aidrama',loadAiHome)">AI Drama</button>
     <button data-pill="samehadaku" class="pill" onclick="navClick('samehadaku',loadSamehadakuHome)">Samehadaku</button>
     <button data-pill="nkvideo" data-admin-only class="pill hidden" onclick="navClick('nkvideo',loadNkHome)">Video</button>
     <button data-pill="anibi" data-needs-anibi class="pill hidden" onclick="navClick('anibi',loadAnibi)">Jadwal</button>
@@ -195,6 +197,8 @@
 <script src="app.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat app.js')"></script>
 <script src="comic.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat comic.js')"></script>
 <script src="drama.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat drama.js')"></script>
+<script src="hls.min.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat hls.min.js')"></script>
+<script src="aidrama.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat aidrama.js')"></script>
 <script src="nkvideo.js" onerror="window.__nsErrs&&__nsErrs.push('Gagal memuat nkvideo.js')"></script>
 </body>
 </html>
