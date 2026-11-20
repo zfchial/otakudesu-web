@@ -139,11 +139,10 @@ async function comicEnsureChapters(url,series){
     return cs;
   }catch(e){return []}
 }
-function comicJumpChapterNo(){
+function comicJumpChapterNo(value){
   if(Date.now()-(comicState.chapterJumpLock||0)<900)return;
   comicState.chapterJumpLock=Date.now();
-  const input=document.getElementById('comicChapterNo');
-  const n=Number(input?.value);
+  const n=Number(value??document.getElementById('comicChapterNo')?.value);
   if(!n||n<1){showToast('Masukkan nomor chapter');return}
   const find=()=>{
     const chs=comicState.chapters||[];
@@ -515,8 +514,8 @@ function comicShowPage(page){
   if(counter)counter.textContent=comicState.page;
   const range=document.getElementById('comicPageRange');
   if(range)range.value=comicState.page;
-  const no=document.getElementById('comicPageNo');
-  if(no&&document.activeElement!==no)no.value=comicState.page;
+  const now=document.getElementById('comicPageNow');
+  if(now)now.textContent=comicState.page;
   comicSaveProgress(comicState.page,total);
   comicPreload(comicState.page);
   if(reader?.classList.contains('single'))comicSyncUrl('page',comicState.page,true);
@@ -596,6 +595,10 @@ async function loadComicReader(url,startPage=1){
     let chs=(comicState.chapters||[]).some(x=>x.url===url)?comicState.chapters:[];
     if(!chs.length){chs=await comicEnsureChapters(url,r.series||comicState.series||comicState.url);if(stale(gen))return}
     const ci=chs.findIndex(x=>x.url===url);
+    const chNums=chs.map(x=>Number((String(x.title||'').match(/(\d+(?:\.\d+)?)/)||[])[1])||0).filter(n=>n>0);
+    const chNow=Number((String(r.title||'').match(/(\d+)/)||[])[0])||0;
+    const chMin=chNums.length?Math.min(...chNums,chNow||Infinity):1;
+    const chMax=chNums.length?Math.max(...chNums,chNow):1;
     const chPrev=ci>=0&&ci<chs.length-1?chs[ci+1]:null;
     const chNext=ci>0?chs[ci-1]:null;
     const prevUrl=r.prev||chPrev?.url||'';
@@ -614,8 +617,8 @@ async function loadComicReader(url,startPage=1){
       <div class="comic-reader-tools">
         <div class="crt-mini">
           <button class="crt-mini-btn" type="button" title="Chapter sebelumnya" ${prevUrl?`data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcLeft}<span>Sebelumnya</span></button>
-          <label class="crt-page-mini" title="Nomor chapter, tekan Enter untuk loncat">Ch <input id="comicChapterNo" type="number" min="1" max="${chs.length||999}" value="${Number((String(r.title||'').match(/\d+/)||[])[0])||''}" placeholder="No." onchange="comicJumpChapterNo()" onkeydown="if(event.key==='Enter'){comicJumpChapterNo();this.blur()}"></label>
-          <label class="crt-page-mini">Hal <input id="comicPageNo" type="number" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" onchange="comicJumpPage(this.value)" onkeydown="if(event.key==='Enter'){comicJumpPage(this.value);this.blur()}"><i>/</i>${imgs.length}</label>
+          ${chs.length?`<label class="crt-bar" title="Geser untuk pindah chapter"><span>Ch <b id="comicChapterNow">${chNow||chMin}</b></span><input id="comicChapterRange" type="range" min="${chMin}" max="${chMax}" value="${chNow||chMin}" oninput="document.getElementById('comicChapterNow').textContent=this.value" onchange="comicJumpChapterNo(this.value)"></label>`:''}
+          <label class="crt-bar" title="Geser untuk pindah halaman"><span>Hal <b id="comicPageNow">${initial}</b></span><input id="comicPageRange" type="range" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" oninput="document.getElementById('comicPageNow').textContent=this.value;comicShowPage(this.value)" onchange="comicJumpPage(this.value)"></label>
           <button class="crt-mini-btn" type="button" title="Chapter berikutnya" ${nextUrl?`data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}><span>Berikutnya</span>${comicIcRight}</button>
           <button class="crt-mini-icon" id="comicFsBtn" type="button" title="Layar penuh" onclick="comicToggleFullscreen()">${comicIcFull}<span>Penuh</span></button>
           <button class="crt-mini-icon cc-fav-reader${fav?' active':''}" id="comicReaderFavBtn" data-url="${esc(url)}" data-title="${esc(r.title||'')}" data-series="${esc(r.series||comicState.url||'')}" data-series-title="${esc(comicState.title||'')}" data-cover="${esc(comicState.cover||'')}" title="Favoritkan chapter" onclick="comicToggleChapterFav(this)">${comicStarSvg}<span>Favorit</span></button>

@@ -3350,3 +3350,15 @@ body.comic-fs-lock {
   .crt-mini-btn span { display: none; }
   .crt-page-mini input { width: 40px; }
 }
+
+.crt-bar { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.crt-bar b { color: var(--text); font-weight: 700; min-width: 20px; text-align: right; }
+.crt-bar input[type="range"] { width: 74px; accent-color: var(--accent); cursor: pointer; }
+@media (max-width: 640px) {
+  .crt-bar { font-size: 10px; gap: 4px; }
+  .crt-bar input[type="range"] { width: 56px; }
+}
+
+.crt-bar b { min-width: 28px; }
+.crt-bar input[type="range"] { margin-left: 3px; }
+.crt-bar + .crt-bar { padding-left: 9px; border-left: 1px solid var(--line); }
