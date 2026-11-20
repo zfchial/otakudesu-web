@@ -3497,3 +3497,4 @@ body.comic-fs-lock {
 .ai-stage.playing .nk-idle { display: none; }
 @media (max-width:640px){ .ai-hero { padding: 18px 14px; } .ai-eps { grid-template-columns: repeat(auto-fill,minmax(40px,1fr)); } }
 .nk-idle { pointer-events: none; }
+.ai-stage iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }

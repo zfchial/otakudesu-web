@@ -95,7 +95,7 @@ async function loadAiDetail(slug,preset){
         <div class="ai-eps">${eps.map(e=>{const p=aiProgress(slug,e.n);return `<button class="ai-ep ${p&&p.dur&&p.time/p.dur>.9?'done':''}" onclick="loadAiPlayer('${esc(slug)}',${e.n})">${e.n}${p&&p.dur&&p.time/p.dur<.9?' <small>&#9654;</small>':''}</button>`}).join('')}</div>
       </section>
       <section class="nk-section" id="aiPlayer"><div class="nk-section-head"><h2 id="aiPlayerTitle">Player</h2><span id="aiPlayerInfo">Pilih episode</span></div>
-        <div class="ai-stage"><video id="aiVideo" controls playsinline preload="metadata"></video><div class="nk-idle"><span>&#9654;</span><p>Pilih episode untuk mulai menonton</p></div></div>
+        <div class="ai-stage" id="aiPlayerStage"><iframe id="aiFrame" src="" allowfullscreen="true" frameborder="0" title="Player"></iframe><div class="nk-idle"><span>&#9654;</span><p>Pilih episode untuk mulai menonton</p></div></div>
         <div class="nk-tools"><a id="aiOpenTab" class="btn btn-secondary hidden" target="_blank" rel="noopener" href="#">Buka Video di Tab Baru</a><button class="btn btn-secondary" id="aiPrev" onclick="aiStep(-1)">&#8592; Episode sebelumnya</button><button class="btn btn-secondary" id="aiNext" onclick="aiStep(1)">Episode berikutnya &#8594;</button></div>
         <div class="nk-servers" id="aiStreams"></div>
       </section>`);
@@ -114,31 +114,21 @@ async function loadAiPlayer(slug,n){
     if(info)info.textContent=`${streams.length} kualitas tersedia`;
     const box=document.getElementById('aiStreams');
     if(box)box.innerHTML=streams.map((s,i)=>`<button class="nk-srv ${i===1||(streams.length===1&&i===0)?'active':''}" onclick="aiAttach(${i})">${esc(s.quality||s.label)}</button>`).join('');
-    const v=document.getElementById('aiVideo');
-    if(v){
-      const cover=d.data&&d.data.item&&d.data.item.cover;
-      if(cover)v.poster=`${API}/aidrama/image?url=${encodeURIComponent(cover)}`;
-      v.addEventListener('playing',()=>v.closest('.ai-stage').classList.add('playing'),{once:true});
-      aiAttach(streams.length>1?1:0);
-      const p=aiProgress(slug,n);
-      v.addEventListener('loadedmetadata',()=>{if(p&&p.dur&&p.time<p.dur-5)v.currentTime=p.time},{once:true});
-      let last=0;
-      v.addEventListener('timeupdate',()=>{const now=Date.now();if(now-last>3000){last=now;aiSaveProgress(slug,n,Math.floor(v.currentTime),Math.floor(v.duration||0))}});
-      document.getElementById('aiPlayer')?.scrollIntoView({block:'start'});
-    }
+    aiAttach(streams.length>1?1:0);
+    document.getElementById('aiPlayer')?.scrollIntoView({block:'center'});
   }catch(e){showToast?.(e.message||'Gagal memuat episode')}
 }
 function aiAttach(i){
   const s=aiState.streams[i];
-  const v=document.getElementById('aiVideo');
-  if(!s||!v)return;
+  const frame=document.getElementById('aiFrame');
+  if(!s||!frame)return;
   document.querySelectorAll('#aiStreams .nk-srv').forEach((b,j)=>b.classList.toggle('active',j===i));
   const mp4=`${API}/aidrama/mp4?url=${encodeURIComponent(s.url)}`;
   const tab=document.getElementById('aiOpenTab');
   if(tab){tab.href=mp4;tab.classList.remove('hidden')}
   showToast?.('Menyiapkan video...');
-  v.src=mp4;
-  v.play().catch(()=>{});
+  frame.src=mp4;
+  document.getElementById('aiPlayerStage')?.classList.add('playing');
 }
 function aiStep(dir){
   const n=aiState.episode+dir;
