@@ -128,6 +128,7 @@ function aiAttach(i){
   if(tab){tab.href=mp4;tab.classList.remove('hidden')}
   showToast?.('Menyiapkan video...');
   frame.src=mp4;
+  frame.onload=()=>{const info=document.getElementById('aiPlayerInfo');if(info)info.textContent='Video siap · tekan play'};
   document.getElementById('aiPlayerStage')?.classList.add('playing');
 }
 function aiStep(dir){
