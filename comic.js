@@ -140,6 +140,8 @@ async function comicEnsureChapters(url,series){
   }catch(e){return []}
 }
 function comicJumpChapterNo(){
+  if(Date.now()-(comicState.chapterJumpLock||0)<900)return;
+  comicState.chapterJumpLock=Date.now();
   const input=document.getElementById('comicChapterNo');
   const n=Number(input?.value);
   if(!n||n<1){showToast('Masukkan nomor chapter');return}
@@ -612,6 +614,7 @@ async function loadComicReader(url,startPage=1){
       <div class="comic-reader-tools">
         <div class="crt-mini">
           <button class="crt-mini-btn" type="button" title="Chapter sebelumnya" ${prevUrl?`data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcLeft}<span>Sebelumnya</span></button>
+          <label class="crt-page-mini" title="Nomor chapter, tekan Enter untuk loncat">Ch <input id="comicChapterNo" type="number" min="1" max="${chs.length||999}" value="${Number((String(r.title||'').match(/\d+/)||[])[0])||''}" placeholder="No." onchange="comicJumpChapterNo()" onkeydown="if(event.key==='Enter'){comicJumpChapterNo();this.blur()}"></label>
           <label class="crt-page-mini">Hal <input id="comicPageNo" type="number" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" onchange="comicJumpPage(this.value)" onkeydown="if(event.key==='Enter'){comicJumpPage(this.value);this.blur()}"><i>/</i>${imgs.length}</label>
           <button class="crt-mini-btn" type="button" title="Chapter berikutnya" ${nextUrl?`data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}><span>Berikutnya</span>${comicIcRight}</button>
           <button class="crt-mini-icon" id="comicFsBtn" type="button" title="Layar penuh" onclick="comicToggleFullscreen()">${comicIcFull}<span>Penuh</span></button>
