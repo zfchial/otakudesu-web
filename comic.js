@@ -139,23 +139,6 @@ async function comicEnsureChapters(url,series){
     return cs;
   }catch(e){return []}
 }
-function comicJumpChapterNo(value){
-  if(Date.now()-(comicState.chapterJumpLock||0)<900)return;
-  comicState.chapterJumpLock=Date.now();
-  const n=Number(value??document.getElementById('comicChapterNo')?.value);
-  if(!n||n<1){showToast('Masukkan nomor chapter');return}
-  const find=()=>{
-    const chs=comicState.chapters||[];
-    const num=x=>Number((String(x.title||'').match(/(\d+(?:\.\d+)?)/)||[])[1])||0;
-    const hit=chs.find(x=>num(x)===n);
-    if(hit)return hit.url;
-    return [...chs].sort((a,b)=>num(a)-num(b))[n-1]?.url||null;
-  };
-  const go=()=>{const u=find();if(u)loadComicReader(u);else showToast(`Chapter ${n} tidak ditemukan`)};
-  if(!(comicState.chapters||[]).length)comicEnsureChapters(comicState.readerUrl,comicState.series).then(go);
-  else go();
-}
-
 function comicReaderSkeleton(){
   return `<section class="section comic-reader-head"><span class="comic-skeleton sk-back"></span><span class="comic-skeleton sk-title"></span></section><div class="comic-reader-tools"><span class="comic-skeleton sk-tools"></span></div><div class="comic-reader"><div class="comic-skeleton sk-page"></div><div class="comic-skeleton sk-page"></div></div>`;
 }
@@ -596,10 +579,6 @@ async function loadComicReader(url,startPage=1){
     let chs=(comicState.chapters||[]).some(x=>x.url===url)?comicState.chapters:[];
     if(!chs.length){chs=await comicEnsureChapters(url,r.series||comicState.series||comicState.url);if(stale(gen))return}
     const ci=chs.findIndex(x=>x.url===url);
-    const chNums=chs.map(x=>Number((String(x.title||'').match(/(\d+(?:\.\d+)?)/)||[])[1])||0).filter(n=>n>0);
-    const chNow=Number((String(r.title||'').match(/(\d+)/)||[])[0])||0;
-    const chMin=chNums.length?Math.min(...chNums,chNow||Infinity):1;
-    const chMax=chNums.length?Math.max(...chNums,chNow):1;
     const chPrev=ci>=0&&ci<chs.length-1?chs[ci+1]:null;
     const chNext=ci>0?chs[ci-1]:null;
     const prevUrl=r.prev||chPrev?.url||'';
@@ -618,7 +597,7 @@ async function loadComicReader(url,startPage=1){
       <div class="comic-reader-tools">
         <div class="crt-mini">
           <button class="crt-mini-btn" type="button" title="Chapter sebelumnya" ${prevUrl?`data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcLeft}<span>Sebelumnya</span></button>
-          ${chs.length?`<label class="crt-bar" title="Geser untuk pindah chapter"><span>Ch <b id="comicChapterNow">${chNow||chMin}</b></span><input id="comicChapterRange" type="range" min="${chMin}" max="${chMax}" value="${chNow||chMin}" oninput="document.getElementById('comicChapterNow').textContent=this.value" onchange="comicJumpChapterNo(this.value)"></label>`:''}
+          ${chs.length?`<label class="crt-select-mini"><select id="comicChapterSelect" title="Pilih chapter" onchange="loadComicReader(this.value)">${chOpts}</select></label>`:''}
           <label class="crt-bar" title="Geser untuk pindah halaman"><span>Hal <b id="comicPageNow">${initial}</b></span><input id="comicPageRange" type="range" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" oninput="document.getElementById('comicPageNow').textContent=this.value;comicShowPage(this.value)" onchange="comicJumpPage(this.value)"></label>
           <button class="crt-mini-btn" type="button" title="Chapter berikutnya" ${nextUrl?`data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}><span>Berikutnya</span>${comicIcRight}</button>
           <button class="crt-mini-icon" id="comicFsBtn" type="button" title="Layar penuh" onclick="comicToggleFullscreen()">${comicIcFull}<span>Penuh</span></button>
