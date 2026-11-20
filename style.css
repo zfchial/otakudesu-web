@@ -3187,3 +3187,124 @@ body.comic-fs-lock {
 .drama-video-box video { display: block; width: 100%; max-height: 78vh; }
 .drama-quality-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
 .drama-player-wrap { padding-bottom: 24px; }
+
+.comic-reader-tools {
+  top: 66px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  gap: 0;
+}
+.crt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 12px;
+  background: rgba(128, 128, 128, .08);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .16);
+  backdrop-filter: blur(12px);
+}
+.crt-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.crt-primary { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.crt-chapter { display: flex; align-items: center; gap: 6px; }
+.crt-icon {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; min-width: 32px; padding: 0 7px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--surface); color: var(--muted); font: inherit; font-size: 11px;
+  cursor: pointer; transition: color .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
+}
+.crt-icon:hover:not(:disabled) { color: var(--text); border-color: var(--accent); background: var(--surface2); }
+.crt-icon:disabled { opacity: .32; cursor: default; }
+.crt-icon svg { flex: 0 0 auto; }
+.crt-select-wrap {
+  display: flex; align-items: center; gap: 7px; height: 32px;
+  padding: 0 9px; background: var(--surface2);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.crt-kicker {
+  font-size: 9px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.crt-select-wrap select {
+  max-width: 190px; border: 0; outline: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.crt-nochapters { color: var(--muted); font-size: 12px; }
+.crt-jump {
+  display: flex; align-items: center; gap: 6px; height: 32px;
+  padding: 0 5px 0 9px; color: var(--muted);
+  background: var(--surface2); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.crt-jump input {
+  width: 58px; border: 0; outline: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 12px;
+}
+.crt-jump button {
+  height: 24px; padding: 0 10px; border: 0; border-radius: 6px;
+  background: var(--accent); color: var(--accent-fg);
+  font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: background .18s var(--ease);
+}
+.crt-jump button:hover { background: var(--accent-hover); }
+.crt-fav { width: auto; padding: 0 10px; }
+.crt-fav.active { color: var(--amber); border-color: var(--amber); }
+.crt-fav.active svg { fill: var(--amber); }
+.crt-seg {
+  display: flex; gap: 2px; padding: 3px;
+  background: var(--surface2); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.crt-seg-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 26px; padding: 0 10px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--muted);
+  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: color .18s var(--ease), background .18s var(--ease);
+}
+.crt-seg-btn:hover { color: var(--text); }
+.crt-seg-btn.active { background: var(--surface3); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
+.crt-widths .crt-seg-btn { width: 28px; padding: 0; }
+.crt-pages { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+.crt-page-label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.crt-page-label b { color: var(--text); }
+.crt-page-label i { font-style: normal; opacity: .45; margin: 0 3px; }
+.crt-pages input[type="range"] { flex: 1; min-width: 70px; accent-color: var(--accent); }
+.crt-actions { display: flex; gap: 6px; margin-left: auto; }
+.comic-reader-wrap.tools-hidden .comic-tools-fab {
+  background: var(--accent); color: var(--accent-fg);
+  border-color: var(--accent); opacity: .95;
+}
+@media (max-width: 640px) {
+  .comic-reader-tools { top: 54px; }
+  .crt-panel { padding: 8px; gap: 7px; }
+  .crt-row { gap: 6px; }
+  .crt-kicker, .crt-fav span, .crt-actions span, .crt-seg-btn span { display: none; }
+  .crt-select-wrap select { max-width: 132px; }
+  .crt-jump input { width: 46px; }
+  .crt-pages { order: 3; flex-basis: 100%; }
+  .crt-seg-btn { padding: 0 8px; }
+  .crt-icon { height: 30px; min-width: 30px; }
+}
+
+.comic-reader-tools { top: 102px; }
+.comic-tools-fab {
+  top: 104px; right: 12px;
+  width: auto; height: 38px; padding: 0 12px; gap: 7px;
+  font: inherit; font-size: 11px; font-weight: 600;
+}
+.comic-reader-wrap:not(.tools-hidden) .comic-tools-fab { display: none; }
+.comic-reader-wrap.fs .comic-tools-fab,
+.comic-reader-wrap.pseudo-fullscreen .comic-tools-fab,
+.comic-reader-wrap:fullscreen .comic-tools-fab { top: 12px; }
+@media (max-width: 640px) {
+  .comic-reader-tools { top: 102px; }
+  .comic-tools-fab { top: 104px; height: 34px; padding: 0 9px; }
+  .comic-reader-wrap.fs .comic-tools-fab,
+  .comic-reader-wrap.pseudo-fullscreen .comic-tools-fab,
+  .comic-reader-wrap:fullscreen .comic-tools-fab { top: 10px; }
+}

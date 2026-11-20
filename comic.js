@@ -9,6 +9,14 @@ function comicSourceTabs(active){return `<div class="comic-filters"><div class="
 function comicAdminLocked(gen){setView(gen,`<div class="empty comic-error"><strong>Doujindesu khusus admin.</strong><p>Masuk dengan akun admin untuk membuka sumber ini.</p><button class="btn btn-primary" onclick="showAuth()">Masuk</button> <button class="btn btn-secondary" onclick="loadComicHome()">Kembali ke Komik</button></div>`)}
 const COMIC_CHAPTER_FAVS_KEY='nanostream-comic-chapter-favs-v1';
 const comicStarSvg='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+const comicIcLeft='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+const comicIcRight='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+const comicIcPages='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="16" rx="2"/><path d="M7 8h4M7 12h4M17 5v14"/></svg>';
+const comicIcSingle='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>';
+const comicIcJump='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>';
+const comicIcFull='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+const comicIcDown='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>';
+const comicIcUp='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
 function comicChapterFavs(){return comicReadStore(COMIC_CHAPTER_FAVS_KEY)}
 function comicWriteFavs(items){comicWriteStore(COMIC_CHAPTER_FAVS_KEY,items)}
 function comicIsChapterFav(url){return comicChapterFavs().some(x=>x.url===url)}
@@ -82,6 +90,9 @@ function comicFavCard(x){
 }
 let comicLastScrollY=0;
 let comicScrollSrc='';
+let comicUserScrolling=false;
+for(const ev of ['wheel','touchmove','pointerdown'])document.addEventListener(ev,()=>{if(document.querySelector('.comic-reader'))comicUserScrolling=true},{capture:true,passive:true});
+document.addEventListener('keydown',e=>{if(['ArrowDown','ArrowUp','PageDown','PageUp',' ','Home','End'].includes(e.key))comicUserScrolling=true},{capture:true});
 function comicScrollPos(){
   const wrap=document.getElementById('comicReaderWrap');
   if(!wrap)return null;
@@ -92,6 +103,7 @@ document.addEventListener('scroll',()=>{
   const wrap=document.getElementById('comicReaderWrap');
   if(!wrap)return;
   if(wrap.querySelector('.comic-reader.single'))return;
+  if(!comicUserScrolling)return;
   if(Date.now()-(comicState.readerOpenedAt||0)<800)return;
   if(Date.now()-(comicState.lastToggleAt||0)<350)return;
   const s=comicScrollPos();
@@ -108,6 +120,8 @@ function comicToggleTools(){
   const hidden=wrap.classList.toggle('tools-hidden');
   comicState.toolsPinned=!hidden;
   comicState.lastToggleAt=Date.now();
+  const fab=wrap.querySelector('.comic-tools-fab');
+  if(fab)fab.title=hidden?'Tampilkan pengaturan baca':'Sembunyikan pengaturan baca';
 }
 async function comicEnsureChapters(url,series){
   if((comicState.chapters||[]).some(x=>x.url===url))return comicState.chapters;
@@ -559,6 +573,7 @@ async function loadComicReader(url,startPage=1){
     comicState.readerUrl=url;
     comicState.toolsPinned=false;
     comicState.readerOpenedAt=Date.now();
+    comicUserScrolling=false;
     comicLastScrollY=0;
     comicScrollSrc='';
     comicState.series=r.series||comicState.url;
@@ -582,24 +597,46 @@ async function loadComicReader(url,startPage=1){
     document.title=`${r.title||'Baca Komik'} · NanoStream`;
     setView(gen,`
       <div id="comicReaderWrap" class="comic-reader-wrap">
-      <button class="comic-tools-fab" onclick="comicToggleTools()" title="Sembunyikan / tampilkan pengaturan baca" aria-label="Toggle pengaturan baca"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg></button>
+      <button class="comic-tools-fab" onclick="comicToggleTools()" title="Tampilkan pengaturan baca" aria-label="Tampilkan pengaturan baca"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg><span>Baca</span></button>
       <section class="section comic-reader-head">
         <button class="btn btn-secondary" onclick="comicBack()">&#8592; Kembali</button>
         <h2>${esc(r.title||'Reader Komik')}</h2>
         <span class="reader-count">${imgs.length} halaman</span>
       </section>
       <div class="comic-reader-tools">
-        <div class="comic-tool-group comic-chapter-jump">
-          ${chs.length?`<label class="comic-sort">Loncat Chapter<select id="comicChapterSelect" onchange="loadComicReader(this.value)">${chOpts}</select></label>`:''}
-          <div class="comic-chapter-num"><input id="comicChapterNo" type="number" min="1" inputmode="numeric" placeholder="No. Chapter" aria-label="Nomor chapter" onkeydown="if(event.key==='Enter')comicJumpChapterNo()"><button class="comic-mode" onclick="comicJumpChapterNo()">Loncat</button></div>
-          ${prevUrl?`<button class="comic-mode" data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)">&#8592; Ch. Sebelumnya</button>`:''}
-          ${nextUrl?`<button class="comic-mode" data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)">Ch. Berikutnya &#8594;</button>`:''}
-          <button class="comic-mode cc-fav-reader${fav?' active':''}" id="comicReaderFavBtn" data-url="${esc(url)}" data-title="${esc(r.title||'')}" data-series="${esc(r.series||comicState.url||'')}" data-series-title="${esc(comicState.title||'')}" data-cover="${esc(comicState.cover||'')}" onclick="comicToggleChapterFav(this)">${comicStarSvg}<span>${fav?'Chapter Difavoritkan':'Favoritkan Chapter'}</span></button>
+        <div class="crt-panel">
+          <div class="crt-row crt-primary">
+            <div class="crt-chapter">
+              <button class="crt-icon" type="button" title="Chapter sebelumnya" ${prevUrl?`data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcLeft}</button>
+              <label class="crt-select-wrap"><span class="crt-kicker">Chapter</span>${chs.length?`<select id="comicChapterSelect" onchange="loadComicReader(this.value)">${chOpts}</select>`:`<span class="crt-nochapters">Daftar chapter kosong</span>`}</label>
+              <button class="crt-icon" type="button" title="Chapter berikutnya" ${nextUrl?`data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcRight}</button>
+            </div>
+            <div class="crt-jump">${comicIcJump}<input id="comicChapterNo" type="number" min="1" inputmode="numeric" placeholder="No." aria-label="Nomor chapter" onkeydown="if(event.key==='Enter')comicJumpChapterNo()"><button type="button" onclick="comicJumpChapterNo()">Loncat</button></div>
+            <button class="crt-icon crt-fav cc-fav-reader${fav?' active':''}" id="comicReaderFavBtn" data-url="${esc(url)}" data-title="${esc(r.title||'')}" data-series="${esc(r.series||comicState.url||'')}" data-series-title="${esc(comicState.title||'')}" data-cover="${esc(comicState.cover||'')}" title="Favoritkan chapter" onclick="comicToggleChapterFav(this)">${comicStarSvg}<span>${fav?'Difavoritkan':'Favorit'}</span></button>
+            <button class="crt-icon crt-collapse" type="button" title="Sembunyikan pengaturan baca" onclick="comicToggleTools()" style="margin-left:auto">${comicIcUp}</button>
+          </div>
+          <div class="crt-row crt-secondary">
+            <div class="crt-seg">
+              <button class="crt-seg-btn comic-mode${mode!=='single'?' active':''}" data-mode="vertical" title="Gulir terus" onclick="comicSetMode('vertical')">${comicIcPages}<span>Vertikal</span></button>
+              <button class="crt-seg-btn comic-mode${mode==='single'?' active':''}" data-mode="single" title="Satu halaman" onclick="comicSetMode('single')">${comicIcSingle}<span>Per Halaman</span></button>
+            </div>
+            <div class="crt-seg crt-widths">
+              <button class="crt-seg-btn comic-width${width===640?' active':''}" data-width="640" title="Lebar sempit" onclick="comicSetWidth(640)">S</button>
+              <button class="crt-seg-btn comic-width${width===820?' active':''}" data-width="820" title="Lebar sedang" onclick="comicSetWidth(820)">M</button>
+              <button class="crt-seg-btn comic-width${width===1100?' active':''}" data-width="1100" title="Lebar lebar" onclick="comicSetWidth(1100)">L</button>
+            </div>
+            <div class="crt-pages">
+              <button class="crt-icon" type="button" title="Halaman sebelumnya" onclick="comicGoPage(-1)">${comicIcLeft}</button>
+              <span class="crt-page-label">Hal <b id="comicPageCurrent">${initial}</b><i>/</i>${imgs.length}</span>
+              <input id="comicPageRange" type="range" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" oninput="comicShowPage(this.value)" aria-label="Pilih halaman">
+              <button class="crt-icon" type="button" title="Halaman berikutnya" onclick="comicGoPage(1)">${comicIcRight}</button>
+            </div>
+            <div class="crt-actions">
+              <button class="crt-icon" id="comicFsBtn" type="button" title="Layar penuh" onclick="comicToggleFullscreen()">${comicIcFull}<span>Penuh</span></button>
+              <button class="crt-icon" type="button" title="Unduh chapter" onclick="comicDownloadChapter()">${comicIcDown}<span>Unduh</span></button>
+            </div>
+          </div>
         </div>
-        <div class="comic-tool-group"><button class="comic-mode${mode!=='single'?' active':''}" data-mode="vertical" onclick="comicSetMode('vertical')">Vertikal</button><button class="comic-mode${mode==='single'?' active':''}" data-mode="single" onclick="comicSetMode('single')">Per Halaman</button></div>
-        <div class="comic-tool-group"><button class="comic-width${width===640?' active':''}" data-width="640" onclick="comicSetWidth(640)">Sempit</button><button class="comic-width${width===820?' active':''}" data-width="820" onclick="comicSetWidth(820)">Sedang</button><button class="comic-width${width===1100?' active':''}" data-width="1100" onclick="comicSetWidth(1100)">Lebar</button></div>
-        <div class="comic-tool-group"><button class="comic-mode" id="comicFsBtn" onclick="comicToggleFullscreen()">Layar Penuh</button><button class="comic-mode" onclick="comicDownloadChapter()">Unduh Chapter</button></div>
-        <div class="comic-page-control"><button class="btn btn-secondary" onclick="comicGoPage(-1)">&#8592;</button><span>Hal <b id="comicPageCurrent">${initial}</b> / ${imgs.length}</span><input id="comicPageRange" type="range" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" oninput="comicShowPage(this.value)" aria-label="Pilih halaman"><button class="btn btn-secondary" onclick="comicGoPage(1)">&#8594;</button></div>
       </div>
       ${imgs.length?`<div class="comic-reader${mode==='single'?' single':''}" style="--comic-width:${width}px">${pages}</div>`:'<div class="empty">Halaman komik tidak ditemukan.</div>'}
       <div class="comic-reader-nav">
@@ -639,7 +676,7 @@ function comicFsActive(){
 function comicFsSync(){
   const active=comicFsActive();
   const btn=document.getElementById('comicFsBtn');
-  if(btn)btn.textContent=active?'Keluar Layar Penuh':'Layar Penuh';
+  if(btn){btn.title=active?'Keluar layar penuh':'Layar penuh';const label=btn.querySelector('span');if(label)label.textContent=active?'Keluar':'Penuh'}
   const w=comicFsWrap();
   if(w)w.classList.toggle('fs',active);
   if(!active)document.body.classList.remove('comic-fs-lock');
