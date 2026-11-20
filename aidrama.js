@@ -111,24 +111,22 @@ async function loadAiPlayer(slug,n){
     const title=document.getElementById('aiPlayerTitle');
     if(title)title.textContent=`Episode ${n}`;
     const info=document.getElementById('aiPlayerInfo');
-    if(info)info.textContent=`${streams.length} kualitas tersedia`;
+    if(info)info.textContent='Player sumber · video dengan iklan';
     const box=document.getElementById('aiStreams');
-    if(box)box.innerHTML=streams.map((s,i)=>`<button class="nk-srv ${i===1||(streams.length===1&&i===0)?'active':''}" onclick="aiAttach(${i})">${esc(s.quality||s.label)}</button>`).join('');
-    aiAttach(streams.length>1?1:0);
+    if(box)box.innerHTML='<button class="nk-srv active" onclick="aiAttach(0)">Putar</button>';
+    aiAttach(0);
     document.getElementById('aiPlayer')?.scrollIntoView({block:'center'});
   }catch(e){showToast?.(e.message||'Gagal memuat episode')}
 }
-function aiAttach(i){
-  const s=aiState.streams[i];
+function aiAttach(){
   const frame=document.getElementById('aiFrame');
-  if(!s||!frame)return;
-  document.querySelectorAll('#aiStreams .nk-srv').forEach((b,j)=>b.classList.toggle('active',j===i));
-  const mp4=`${API}/aidrama/mp4?url=${encodeURIComponent(s.url)}`;
+  if(!frame||!aiState.slug)return;
+  const src=`https://www.vibeshort.live/id/episode/${encodeURIComponent(aiState.slug)}-${aiState.episode}`;
   const tab=document.getElementById('aiOpenTab');
-  if(tab){tab.href=mp4;tab.classList.remove('hidden')}
-  showToast?.('Menyiapkan video...');
-  frame.src=mp4;
-  frame.onload=()=>{const info=document.getElementById('aiPlayerInfo');if(info)info.textContent='Video siap · tekan play'};
+  if(tab){tab.href=src;tab.classList.remove('hidden')}
+  showToast?.('Memuat player sumber...');
+  frame.src=src;
+  frame.onload=()=>{const info=document.getElementById('aiPlayerInfo');if(info)info.textContent='Video siap · tekan play di player'};
   document.getElementById('aiPlayerStage')?.classList.add('playing');
 }
 function aiStep(dir){
