@@ -513,6 +513,8 @@ function comicShowPage(page){
   if(counter)counter.textContent=comicState.page;
   const range=document.getElementById('comicPageRange');
   if(range)range.value=comicState.page;
+  const no=document.getElementById('comicPageNo');
+  if(no&&document.activeElement!==no)no.value=comicState.page;
   comicSaveProgress(comicState.page,total);
   comicPreload(comicState.page);
   if(reader?.classList.contains('single'))comicSyncUrl('page',comicState.page,true);
@@ -521,6 +523,10 @@ function comicShowPage(page){
 function comicGoPage(delta){
   comicShowPage((comicState.page||1)+delta);
   document.querySelector('.comic-page.current')?.scrollIntoView({block:'start',behavior:'smooth'});
+}
+function comicJumpPage(value){
+  comicShowPage(value);
+  document.getElementById('comic-page-'+comicState.page)?.scrollIntoView({block:'start',behavior:'smooth'});
 }
 
 function comicPreload(page){
@@ -604,38 +610,12 @@ async function loadComicReader(url,startPage=1){
         <span class="reader-count">${imgs.length} halaman</span>
       </section>
       <div class="comic-reader-tools">
-        <div class="crt-panel">
-          <div class="crt-row crt-primary">
-            <div class="crt-chapter">
-              <button class="crt-icon" type="button" title="Chapter sebelumnya" ${prevUrl?`data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcLeft}</button>
-              <label class="crt-select-wrap"><span class="crt-kicker">Chapter</span>${chs.length?`<select id="comicChapterSelect" onchange="loadComicReader(this.value)">${chOpts}</select>`:`<span class="crt-nochapters">Daftar chapter kosong</span>`}</label>
-              <button class="crt-icon" type="button" title="Chapter berikutnya" ${nextUrl?`data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcRight}</button>
-            </div>
-            <div class="crt-jump">${comicIcJump}<input id="comicChapterNo" type="number" min="1" inputmode="numeric" placeholder="No." aria-label="Nomor chapter" onkeydown="if(event.key==='Enter')comicJumpChapterNo()"><button type="button" onclick="comicJumpChapterNo()">Loncat</button></div>
-            <button class="crt-icon crt-fav cc-fav-reader${fav?' active':''}" id="comicReaderFavBtn" data-url="${esc(url)}" data-title="${esc(r.title||'')}" data-series="${esc(r.series||comicState.url||'')}" data-series-title="${esc(comicState.title||'')}" data-cover="${esc(comicState.cover||'')}" title="Favoritkan chapter" onclick="comicToggleChapterFav(this)">${comicStarSvg}<span>${fav?'Difavoritkan':'Favorit'}</span></button>
-            <button class="crt-icon crt-collapse" type="button" title="Sembunyikan pengaturan baca" onclick="comicToggleTools()" style="margin-left:auto">${comicIcUp}</button>
-          </div>
-          <div class="crt-row crt-secondary">
-            <div class="crt-seg">
-              <button class="crt-seg-btn comic-mode${mode!=='single'?' active':''}" data-mode="vertical" title="Gulir terus" onclick="comicSetMode('vertical')">${comicIcPages}<span>Vertikal</span></button>
-              <button class="crt-seg-btn comic-mode${mode==='single'?' active':''}" data-mode="single" title="Satu halaman" onclick="comicSetMode('single')">${comicIcSingle}<span>Per Halaman</span></button>
-            </div>
-            <div class="crt-seg crt-widths">
-              <button class="crt-seg-btn comic-width${width===640?' active':''}" data-width="640" title="Lebar sempit" onclick="comicSetWidth(640)">S</button>
-              <button class="crt-seg-btn comic-width${width===820?' active':''}" data-width="820" title="Lebar sedang" onclick="comicSetWidth(820)">M</button>
-              <button class="crt-seg-btn comic-width${width===1100?' active':''}" data-width="1100" title="Lebar lebar" onclick="comicSetWidth(1100)">L</button>
-            </div>
-            <div class="crt-pages">
-              <button class="crt-icon" type="button" title="Halaman sebelumnya" onclick="comicGoPage(-1)">${comicIcLeft}</button>
-              <span class="crt-page-label">Hal <b id="comicPageCurrent">${initial}</b><i>/</i>${imgs.length}</span>
-              <input id="comicPageRange" type="range" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" oninput="comicShowPage(this.value)" aria-label="Pilih halaman">
-              <button class="crt-icon" type="button" title="Halaman berikutnya" onclick="comicGoPage(1)">${comicIcRight}</button>
-            </div>
-            <div class="crt-actions">
-              <button class="crt-icon" id="comicFsBtn" type="button" title="Layar penuh" onclick="comicToggleFullscreen()">${comicIcFull}<span>Penuh</span></button>
-              <button class="crt-icon" type="button" title="Unduh chapter" onclick="comicDownloadChapter()">${comicIcDown}<span>Unduh</span></button>
-            </div>
-          </div>
+        <div class="crt-mini">
+          <button class="crt-mini-btn" type="button" title="Chapter sebelumnya" ${prevUrl?`data-url="${esc(prevUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}>${comicIcLeft}<span>Sebelumnya</span></button>
+          <label class="crt-page-mini">Hal <input id="comicPageNo" type="number" min="1" max="${Math.max(imgs.length,1)}" value="${initial}" onchange="comicJumpPage(this.value)" onkeydown="if(event.key==='Enter'){comicJumpPage(this.value);this.blur()}"><i>/</i>${imgs.length}</label>
+          <button class="crt-mini-btn" type="button" title="Chapter berikutnya" ${nextUrl?`data-url="${esc(nextUrl)}" onclick="loadComicReader(this.dataset.url)"`:'disabled'}><span>Berikutnya</span>${comicIcRight}</button>
+          <button class="crt-mini-icon" id="comicFsBtn" type="button" title="Layar penuh" onclick="comicToggleFullscreen()">${comicIcFull}<span>Penuh</span></button>
+          <button class="crt-mini-icon cc-fav-reader${fav?' active':''}" id="comicReaderFavBtn" data-url="${esc(url)}" data-title="${esc(r.title||'')}" data-series="${esc(r.series||comicState.url||'')}" data-series-title="${esc(comicState.title||'')}" data-cover="${esc(comicState.cover||'')}" title="Favoritkan chapter" onclick="comicToggleChapterFav(this)">${comicStarSvg}<span>Favorit</span></button>
         </div>
       </div>
       ${imgs.length?`<div class="comic-reader${mode==='single'?' single':''}" style="--comic-width:${width}px">${pages}</div>`:'<div class="empty">Halaman komik tidak ditemukan.</div>'}
