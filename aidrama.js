@@ -132,20 +132,10 @@ function aiAttach(i){
   const s=aiState.streams[i];
   const v=document.getElementById('aiVideo');
   if(!s||!v)return;
-  if(aiState.hls){aiState.hls.destroy();aiState.hls=null}
   document.querySelectorAll('#aiStreams .nk-srv').forEach((b,j)=>b.classList.toggle('active',j===i));
-  const src=`${API}/aidrama/hls?url=${encodeURIComponent(s.url)}`;
-  if(window.Hls&&Hls.isSupported()){
-    aiState.hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});
-    aiState.hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal)showToast?.('Player: '+(d.details||d.type))});
-    aiState.hls.loadSource(src);
-    aiState.hls.attachMedia(v);
-    v.play().catch(()=>{});
-  }else if(v.canPlayType('application/vnd.apple.mpegurl')){
-    v.src=s.url;
-  }else{
-    showToast?.('Browser tidak mendukung HLS');
-  }
+  showToast?.('Menyiapkan video...');
+  v.src=`${API}/aidrama/mp4?url=${encodeURIComponent(s.url)}`;
+  v.play().catch(()=>{});
 }
 function aiStep(dir){
   const n=aiState.episode+dir;
