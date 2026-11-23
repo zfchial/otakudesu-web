@@ -1,5 +1,5 @@
-const CACHE_SHELL='nanostream-shell-v49';
-const CACHE_DATA='nanostream-data-v49';
+const CACHE_SHELL='nanostream-shell-v50';
+const CACHE_DATA='nanostream-data-v50';
 const SHELL=[
   './',
   './index.html',

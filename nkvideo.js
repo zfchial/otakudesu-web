@@ -36,10 +36,14 @@ async function nkEnsureGenres(){
   if(nkState.genres.length||!nkAdmin())return;
   try{const d=await authApi('/nkvideo/genres');nkState.genres=d.data||[]}catch(e){nkState.genres=[]}
 }
+function nkAttr(s){return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
 function nkCats(active){
-  return `<button class="nk-chip ${active?'':'active'}" onclick="loadNkHome(1)">Semua</button>`+
-    nkState.genres.map(g=>`<button class="nk-chip ${g.name===active?'active':''}" onclick="loadNkGenre(${nkJarg(g.name)})">${esc(g.name)}</button>`).join('')+
-    `<button class="nk-chip" onclick="loadNkHistory()">Riwayat</button><button class="nk-chip" onclick="loadNkFavs()">Favorit</button>`;
+  const opts=nkState.genres.map(g=>`<option value="${nkAttr(g.name)}" ${g.name===active?'selected':''}>${esc(g.name)} (${g.count})</option>`).join('');
+  return `<div class="nk-cats nk-genre-row">
+    <select class="nk-genre-select" aria-label="Genre video" onchange="if(this.value)loadNkGenre(this.value);else loadNkHome(1)"><option value="">Semua genre</option>${opts}</select>
+    <button class="nk-chip ${active?'':'active'}" onclick="loadNkHome(1)">Semua judul</button>
+    <button class="nk-chip" onclick="loadNkHistory()">Riwayat</button><button class="nk-chip" onclick="loadNkFavs()">Favorit</button>
+  </div>`;
 }
 function nkHero(title,sub,q,active=''){
   return `<section class="nk-hero">

@@ -3411,6 +3411,9 @@ body.comic-fs-lock {
 .nk-cats::-webkit-scrollbar { display: none; }
 .nk-chip { flex: 0 0 auto; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--line-strong); background: rgba(10,10,14,.55); color: var(--text); font-size: 11px; cursor: pointer; }
 .nk-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.nk-genre-row { align-items: center; }
+.nk-genre-select { flex: 0 0 auto; max-width: 190px; padding: 5px 10px; border-radius: 9px; border: 1px solid var(--line-strong); background: rgba(10,10,14,.72); color: var(--text); font-size: 11px; cursor: pointer; }
+.nk-genre-select option { background: var(--surface2); color: var(--text); }
 .nk-section { margin-top: 18px; }
 .nk-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .nk-section-head h2 { font-family: var(--font-display); font-size: 18px; margin: 0; }
