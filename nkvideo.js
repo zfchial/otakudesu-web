@@ -4,7 +4,7 @@ function syncNkAdminNav(){
   document.querySelectorAll('[data-admin-only]').forEach(el=>el.classList.toggle('hidden',!on));
 }
 syncNkAdminNav();
-const nkState={home:[],detail:null,favs:[],cats:[]};
+const nkState={home:[],detail:null,favs:[],genres:[]};
 function nkDate(s){
   if(!s)return '';
   const d=new Date(s.replace(' ','T'));
@@ -32,13 +32,13 @@ function nkPager(page,hasNext,fn,args=[]){
   const call=(p)=>esc(`${fn}(${[...args,Math.max(1,p)].map(nkJarg).join(',')})`);
   return `<div class="nk-pager"><button class="btn btn-secondary" ${page<=1?'disabled':''} onclick="${call(page-1)}">&#8592; Sebelumnya</button><span>${page}</span><button class="btn btn-secondary" ${hasNext?'':'disabled'} onclick="${call(page+1)}">Berikutnya &#8594;</button></div>`;
 }
-async function nkEnsureCats(){
-  if(nkState.cats.length||!nkAdmin())return;
-  try{const d=await authApi('/nkvideo/categories');nkState.cats=d.data||[]}catch(e){nkState.cats=[]}
+async function nkEnsureGenres(){
+  if(nkState.genres.length||!nkAdmin())return;
+  try{const d=await authApi('/nkvideo/genres');nkState.genres=d.data||[]}catch(e){nkState.genres=[]}
 }
 function nkCats(active){
   return `<button class="nk-chip ${active?'':'active'}" onclick="loadNkHome(1)">Semua</button>`+
-    nkState.cats.map(c=>`<button class="nk-chip ${c.slug===active?'active':''}" onclick="loadNkCategory(${nkJarg(c.slug)})">${esc(c.name)}</button>`).join('')+
+    nkState.genres.map(g=>`<button class="nk-chip ${g.name===active?'active':''}" onclick="loadNkGenre(${nkJarg(g.name)})">${esc(g.name)}</button>`).join('')+
     `<button class="nk-chip" onclick="loadNkHistory()">Riwayat</button><button class="nk-chip" onclick="loadNkFavs()">Favorit</button>`;
 }
 function nkHero(title,sub,q,active=''){
@@ -67,7 +67,7 @@ async function loadNkHistory(){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat riwayat...</div>');
   try{
-    await nkEnsureCats();
+    await nkEnsureGenres();
     const d=await authApi('/video/history');
     if(stale(gen))return;
     const items=d.data||[];
@@ -81,7 +81,7 @@ async function loadNkFavs(){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat favorit...</div>');
   try{
-    await nkEnsureCats();
+    await nkEnsureGenres();
     const d=await authApi('/video/favs');
     if(stale(gen))return;
     const items=d.data||[];
@@ -117,13 +117,29 @@ async function nkFavToggle(btn){
     }
   }catch(e){alert(e.message||'Gagal menyimpan favorit')}
 }
+async function loadNkGenre(g,page=1){
+  const gen=view('loadNkGenre',[g,page]);
+  if(!nkAdmin())return nkLocked(gen);
+  setActiveNav('nkvideo');
+  setView(gen,'<div class="nk-empty">Memuat genre...</div>');
+  try{
+    await nkEnsureGenres();
+    const d=await authApi(`/nkvideo/home?genre=${encodeURIComponent(g)}&page=${page}&limit=18`);
+    if(stale(gen))return;
+    const items=(d.data&&d.data.items)||[];
+    nkState.home=items;
+    setView(gen,`${nkHero(`Genre ${g}`,`Filter genre: ${g}`,'',g)}
+      <section class="nk-section"><div class="nk-section-head"><h2>${esc(g)}</h2><span>${items.length} judul</span></div>${nkGrid(items,'Tidak ada judul pada genre ini.')}</section>
+      <section class="nk-section">${nkPager(page,d.data?.has_next,'loadNkGenre',[g])}</section>`);
+  }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat genre')}</div>`)}
+}
 async function loadNkHome(page=1){
   const gen=view('loadNkHome',[page]);
   if(!nkAdmin())return nkLocked(gen);
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat katalog...</div>');
   try{
-    await nkEnsureCats();
+    await nkEnsureGenres();
     const d=await authApi(`/nkvideo/home?page=${page}&limit=18`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
@@ -139,7 +155,7 @@ async function loadNkCategory(cat,page=1){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat katalog...</div>');
   try{
-    await nkEnsureCats();
+    await nkEnsureGenres();
     const d=await authApi(`/nkvideo/home?category=${encodeURIComponent(cat)}&page=${page}&limit=18`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
@@ -159,7 +175,7 @@ async function loadNkSearch(q,page=1){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Mencari...</div>');
   try{
-    await nkEnsureCats();
+    await nkEnsureGenres();
     const d=await authApi(`/nkvideo/search?q=${encodeURIComponent(q)}&page=${page}&limit=18`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
