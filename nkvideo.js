@@ -4,7 +4,7 @@ function syncNkAdminNav(){
   document.querySelectorAll('[data-admin-only]').forEach(el=>el.classList.toggle('hidden',!on));
 }
 syncNkAdminNav();
-const nkState={home:[],detail:null,favs:[]};
+const nkState={home:[],detail:null,favs:[],cats:[]};
 function nkDate(s){
   if(!s)return '';
   const d=new Date(s.replace(' ','T'));
@@ -32,12 +32,21 @@ function nkPager(page,hasNext,fn,args=[]){
   const call=(p)=>esc(`${fn}(${[...args,Math.max(1,p)].map(nkJarg).join(',')})`);
   return `<div class="nk-pager"><button class="btn btn-secondary" ${page<=1?'disabled':''} onclick="${call(page-1)}">&#8592; Sebelumnya</button><span>${page}</span><button class="btn btn-secondary" ${hasNext?'':'disabled'} onclick="${call(page+1)}">Berikutnya &#8594;</button></div>`;
 }
-function nkHero(title,sub,q){
+async function nkEnsureCats(){
+  if(nkState.cats.length||!nkAdmin())return;
+  try{const d=await authApi('/nkvideo/categories');nkState.cats=d.data||[]}catch(e){nkState.cats=[]}
+}
+function nkCats(active){
+  return `<button class="nk-chip ${active?'':'active'}" onclick="loadNkHome(1)">Semua</button>`+
+    nkState.cats.map(c=>`<button class="nk-chip ${c.slug===active?'active':''}" onclick="loadNkCategory(${nkJarg(c.slug)})">${esc(c.name)}</button>`).join('')+
+    `<button class="nk-chip" onclick="loadNkHistory()">Riwayat</button><button class="nk-chip" onclick="loadNkFavs()">Favorit</button>`;
+}
+function nkHero(title,sub,q,active=''){
   return `<section class="nk-hero">
     <div class="nk-hero-bg" style="background-image:url('${esc(nkImgUrl(nkState.home[0]?.cover||''))}')"></div>
     <div class="nk-hero-inner"><span class="nk-kicker">KHUSUS ADMIN</span><h1>${esc(title)}</h1><p>${esc(sub)}</p>
       <div class="nk-search"><span class="nk-search-ic">&#128269;</span><input id="nkSearchInput" type="search" value="${esc(q||'')}" placeholder="Cari judul video..." onkeydown="if(event.key==='Enter')nkSearchGo()"><button class="btn btn-primary" onclick="nkSearchGo()">Cari</button></div>
-      <div class="nk-cats"><button class="nk-chip active" onclick="loadNkHome(1)">Semua</button><button class="nk-chip" onclick="loadNkCategory('hentai')">Hentai</button><button class="nk-chip" onclick="loadNkCategory('2d-animation')">2D Animation</button><button class="nk-chip" onclick="loadNkCategory('3d-hentai')">3D Hentai</button><button class="nk-chip" onclick="loadNkCategory('jav')">JAV</button><button class="nk-chip" onclick="loadNkHistory()">Riwayat</button><button class="nk-chip" onclick="loadNkFavs()">Favorit</button></div>
+      <div class="nk-cats">${nkCats(active)}</div>
     </div>
   </section>`;
 }
@@ -58,6 +67,7 @@ async function loadNkHistory(){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat riwayat...</div>');
   try{
+    await nkEnsureCats();
     const d=await authApi('/video/history');
     if(stale(gen))return;
     const items=d.data||[];
@@ -71,6 +81,7 @@ async function loadNkFavs(){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat favorit...</div>');
   try{
+    await nkEnsureCats();
     const d=await authApi('/video/favs');
     if(stale(gen))return;
     const items=d.data||[];
@@ -112,6 +123,7 @@ async function loadNkHome(page=1){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat katalog...</div>');
   try{
+    await nkEnsureCats();
     const d=await authApi(`/nkvideo/home?page=${page}&limit=18`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
@@ -127,10 +139,12 @@ async function loadNkCategory(cat,page=1){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Memuat katalog...</div>');
   try{
+    await nkEnsureCats();
     const d=await authApi(`/nkvideo/home?category=${encodeURIComponent(cat)}&page=${page}&limit=18`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
-    setView(gen,`${nkHero(`Kategori ${cat}`,`Filter: ${cat}`,'')}
+    nkState.home=items;
+    setView(gen,`${nkHero(`Kategori ${cat}`,`Filter: ${cat}`,'',cat)}
       <section class="nk-section"><div class="nk-section-head"><h2>${esc(cat)}</h2><span>${items.length} judul</span></div>${nkGrid(items,'Tidak ada judul pada kategori ini.')}</section>
       <section class="nk-section">${nkPager(page,d.data?.has_next,'loadNkCategory',[cat])}</section>`);
   }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat katalog')}</div>`)}
@@ -145,9 +159,11 @@ async function loadNkSearch(q,page=1){
   setActiveNav('nkvideo');
   setView(gen,'<div class="nk-empty">Mencari...</div>');
   try{
+    await nkEnsureCats();
     const d=await authApi(`/nkvideo/search?q=${encodeURIComponent(q)}&page=${page}&limit=18`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
+    nkState.home=items;
     setView(gen,`${nkHero(`Hasil: ${q}`,`${items.length} judul ditemukan`,q)}
       <section class="nk-section">${nkGrid(items,'Tidak ada hasil untuk kata kunci ini.')}</section>
       <section class="nk-section">${nkPager(page,d.data?.has_next,'loadNkSearch',[q])}</section>`);
