@@ -4,7 +4,7 @@ function syncNkAdminNav(){
   document.querySelectorAll('[data-admin-only]').forEach(el=>el.classList.toggle('hidden',!on));
 }
 syncNkAdminNav();
-const nkState={home:[],detail:null};
+const nkState={home:[],detail:null,favs:[]};
 function nkDate(s){
   if(!s)return '';
   const d=new Date(s.replace(' ','T'));
@@ -37,12 +37,74 @@ function nkHero(title,sub,q){
     <div class="nk-hero-bg" style="background-image:url('${esc(nkImgUrl(nkState.home[0]?.cover||''))}')"></div>
     <div class="nk-hero-inner"><span class="nk-kicker">KHUSUS ADMIN</span><h1>${esc(title)}</h1><p>${esc(sub)}</p>
       <div class="nk-search"><span class="nk-search-ic">&#128269;</span><input id="nkSearchInput" type="search" value="${esc(q||'')}" placeholder="Cari judul video..." onkeydown="if(event.key==='Enter')nkSearchGo()"><button class="btn btn-primary" onclick="nkSearchGo()">Cari</button></div>
-      <div class="nk-cats"><button class="nk-chip active" onclick="loadNkHome(1)">Semua</button><button class="nk-chip" onclick="loadNkCategory('hentai')">Hentai</button><button class="nk-chip" onclick="loadNkCategory('2d-animation')">2D Animation</button><button class="nk-chip" onclick="loadNkCategory('3d-hentai')">3D Hentai</button><button class="nk-chip" onclick="loadNkCategory('jav')">JAV</button></div>
+      <div class="nk-cats"><button class="nk-chip active" onclick="loadNkHome(1)">Semua</button><button class="nk-chip" onclick="loadNkCategory('hentai')">Hentai</button><button class="nk-chip" onclick="loadNkCategory('2d-animation')">2D Animation</button><button class="nk-chip" onclick="loadNkCategory('3d-hentai')">3D Hentai</button><button class="nk-chip" onclick="loadNkCategory('jav')">JAV</button><button class="nk-chip" onclick="loadNkHistory()">Riwayat</button><button class="nk-chip" onclick="loadNkFavs()">Favorit</button></div>
     </div>
   </section>`;
 }
 function nkGrid(items,empty){
   return items.length?`<div class="nk-grid">${items.map(nkCard).join('')}</div>`:`<div class="nk-empty">${esc(empty||'Tidak ada judul ditemukan.')}</div>`;
+}
+function nkSavedCard(a,kind){
+  return `<article class="nk-card">
+    <div class="nk-poster">${nkImg(a.cover,a.title)}<span class="nk-badge">18+</span></div>
+    <div class="nk-card-body"><h3>${esc(a.title||'')}</h3><span>${esc(nkDate(a.created_at))}</span>
+      <div class="nk-row"><button class="btn btn-primary" onclick="loadNkDetail(${nkJarg(a.slug||'')})">Tonton</button><button class="btn btn-secondary" onclick="nkRemoveSaved('${kind}',${nkJarg(a.slug||'')})">Hapus</button></div>
+    </div>
+  </article>`;
+}
+async function loadNkHistory(){
+  const gen=view('loadNkHistory',[]);
+  if(!nkAdmin())return nkLocked(gen);
+  setActiveNav('nkvideo');
+  setView(gen,'<div class="nk-empty">Memuat riwayat...</div>');
+  try{
+    const d=await authApi('/video/history');
+    if(stale(gen))return;
+    const items=d.data||[];
+    setView(gen,`${nkHero('Riwayat Nonton',`${items.length} video tontonan`,'')}
+      <section class="nk-section">${items.length?`<div class="nk-grid">${items.map(x=>nkSavedCard(x,'history')).join('')}</div>`:'<div class="nk-empty">Belum ada riwayat tonton.</div>'}</section>`);
+  }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat riwayat')}</div>`)}
+}
+async function loadNkFavs(){
+  const gen=view('loadNkFavs',[]);
+  if(!nkAdmin())return nkLocked(gen);
+  setActiveNav('nkvideo');
+  setView(gen,'<div class="nk-empty">Memuat favorit...</div>');
+  try{
+    const d=await authApi('/video/favs');
+    if(stale(gen))return;
+    const items=d.data||[];
+    nkState.favs=items;
+    setView(gen,`${nkHero('Video Favorit',`${items.length} video tersimpan`,'')}
+      <section class="nk-section">${items.length?`<div class="nk-grid">${items.map(x=>nkSavedCard(x,'favs')).join('')}</div>`:'<div class="nk-empty">Belum ada video favorit.</div>'}</section>`);
+  }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat favorit')}</div>`)}
+}
+async function nkRemoveSaved(kind,slug){
+  try{
+    await authApi(`/video/${kind}/remove?slug=${encodeURIComponent(slug)}`,'DELETE');
+    if(kind==='favs')loadNkFavs();else loadNkHistory();
+  }catch(e){alert(e.message||'Gagal menghapus')}
+}
+async function nkRecordHistory(){
+  const a=nkState.detail||{};
+  if(!a.slug||!nkAdmin())return;
+  try{await authApi('/video/history','POST',{slug:a.slug,title:a.title||'',cover:a.cover||'',url:a.url||''})}catch(e){}
+}
+async function nkFavToggle(btn){
+  const a=nkState.detail||{};
+  if(!a.slug||!nkAdmin())return;
+  const has=nkState.favs.some(x=>x.slug===a.slug);
+  try{
+    if(has){
+      await authApi(`/video/favs/remove?slug=${encodeURIComponent(a.slug)}`,'DELETE');
+      nkState.favs=nkState.favs.filter(x=>x.slug!==a.slug);
+      btn.textContent='\u2606 Simpan';
+    }else{
+      await authApi('/video/favs','POST',{slug:a.slug,title:a.title||'',cover:a.cover||'',url:a.url||''});
+      nkState.favs.push({slug:a.slug});
+      btn.textContent='\u2605 Tersimpan';
+    }
+  }catch(e){alert(e.message||'Gagal menyimpan favorit')}
 }
 async function loadNkHome(page=1){
   const gen=view('loadNkHome',[page]);
@@ -107,8 +169,10 @@ async function loadNkDetail(slug){
     const a=(d.data&&d.data.item)||{};
     const info=(d.data&&d.data.info)||[];
     const streams=(d.data&&d.data.streams)||[];
+    try{nkState.favs=((await authApi('/video/favs')).data)||[]}catch(e){nkState.favs=[]}
     nkState.detail=a;
     const direct=streams.some(s=>s.file);
+    const fav=nkState.favs.some(x=>x.slug===a.slug);
     setView(gen,`<div class="nk-crumb"><button onclick="loadNkHome()">&#8592; Katalog</button><span>/</span><span>Detail</span></div>
       <section class="nk-detail">
         <div class="nk-cover">${nkImg(a.cover,a.title)}</div>
@@ -118,7 +182,7 @@ async function loadNkDetail(slug){
           <div class="nk-sub">${esc(nkDate(a.date))} &middot; ${streams.length} server &middot; ${direct?'Tanpa iklan':'Player eksternal'}</div>
           <div class="nk-tags">${nkTagList(info)}</div>
           <div class="nk-meta">${info.slice(0,8).map(x=>`<div><span>${esc(x.key)}</span><b>${esc(x.value)}</b></div>`).join('')}</div>
-          <div class="nk-row"><button class="btn btn-primary" onclick="document.getElementById('nkPlayer').scrollIntoView({block:'center'});document.querySelector('.nk-srv')?.click()">&#9654; Tonton Sekarang</button><button class="btn btn-secondary" onclick="nkSave(this)">&#9733; Simpan</button></div>
+          <div class="nk-row"><button class="btn btn-primary" onclick="document.getElementById('nkPlayer').scrollIntoView({block:'center'});document.querySelector('.nk-srv')?.click()">&#9654; Tonton Sekarang</button><button class="btn btn-secondary" onclick="nkFavToggle(this)">${fav?'\u2605 Tersimpan':'\u2606 Simpan'}</button></div>
         </div>
       </section>
       <section class="nk-section" id="nkPlayer">
@@ -138,6 +202,7 @@ function nkPlay(btn){
   const frame=document.getElementById('nkFrame');
   const idle=document.getElementById('nkIdle');
   if(!video||!frame||!idle)return;
+  nkRecordHistory();
   video.pause();
   frame.src='about:blank';
   document.querySelectorAll('.nk-srv').forEach(b=>b.classList.toggle('active',b===btn));
@@ -171,17 +236,4 @@ function nkClosePlayer(){
   document.getElementById('nkCloseBtn')?.classList.add('hidden');
   document.getElementById('nkOpenTab')?.classList.add('hidden');
 }
-function nkSave(btn){
-  const a=nkState.detail||{};
-  const key='nanostream-nk-saved';
-  let arr=[];
-  try{arr=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){arr=[]}
-  if(arr.some(x=>x.slug===a.slug)){
-    arr=arr.filter(x=>x.slug!==a.slug);
-    btn.textContent='\u2606 Simpan';
-  }else{
-    arr.unshift({slug:a.slug,title:a.title,cover:a.cover});
-    btn.textContent='\u2605 Tersimpan';
-  }
-  localStorage.setItem(key,JSON.stringify(arr.slice(0,100)));
-}
+

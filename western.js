@@ -15,17 +15,18 @@ function westCard(m){
   </article>`;
 }
 async function loadWestHome(page=1){
-  setActiveNav('western');
   const gen=view('loadWestHome',[page]);
+  if(!nkAdmin())return nkLocked(gen);
+  setActiveNav('western');
   setView(gen,'<div class="nk-empty">Memuat film...</div>');
   try{
-    const d=await api(`/western/home?page=${page}&limit=24`);
+    const d=await authApi(`/western/home?page=${page}&limit=24`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
     setView(gen,`<section class="nk-hero"><div class="nk-kicker">FILM BARAT · SUB INDONESIA</div><h1>Film Amerika & Barat</h1><p>Hollywood dan film internasional dengan subtitle Indonesia</p>
       <div class="nk-search"><span class="nk-search-ic">&#128269;</span><input id="westSearchInput" type="search" placeholder="Cari judul film..." onkeydown="if(event.key==='Enter')westSearchGo()"><button class="btn btn-primary" onclick="westSearchGo()">Cari</button></div></section>
       <section class="nk-section"><div class="nk-section-head"><h2>Film Terbaru</h2><span>${items.length} judul</span></div>${items.length?`<div class="nk-grid">${items.map(westCard).join('')}</div>`:'<div class="nk-empty">Belum ada film.</div>'}</section>
-      <section class="nk-section"><div class="nk-pager"><button class="btn btn-secondary" ${page<=1?'disabled':''} onclick="loadWestHome(${Math.max(1,page-1)})">&#8592; Sebelumnya</button><span>${page}</span><button class="btn btn-secondary" ${items.length<24?'disabled':''} onclick="loadWestHome(${page+1})">Berikutnya &#8594;</button></div></section>`);
+      <section class="nk-section"><div class="nk-pager"><button class="btn btn-secondary" ${page<=1?'disabled':''} onclick="loadWestHome(${Math.max(1,page-1)})">&#8592; Sebelumnya</button><span>${page}</span><button class="btn btn-secondary" ${d.data?.has_next?'':'disabled'} onclick="loadWestHome(${page+1})">Berikutnya &#8594;</button></div></section>`);
   }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat film')}</div>`)}
 }
 function westSearchGo(){
@@ -33,11 +34,12 @@ function westSearchGo(){
   if(q)loadWestSearch(q);
 }
 async function loadWestSearch(q){
-  setActiveNav('western');
   const gen=view('loadWestSearch',[q]);
+  if(!nkAdmin())return nkLocked(gen);
+  setActiveNav('western');
   setView(gen,'<div class="nk-empty">Mencari...</div>');
   try{
-    const d=await api(`/western/search?q=${encodeURIComponent(q)}`);
+    const d=await authApi(`/western/search?q=${encodeURIComponent(q)}`);
     if(stale(gen))return;
     const items=(d.data&&d.data.items)||[];
     setView(gen,`<section class="nk-hero"><div class="nk-kicker">PENCARIAN</div><h1>Hasil: ${esc(q)}</h1><p>${items.length} judul ditemukan</p>
@@ -46,11 +48,12 @@ async function loadWestSearch(q){
   }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Pencarian gagal')}</div>`)}
 }
 async function loadWestDetail(slug){
-  setActiveNav('western');
   const gen=view('loadWestDetail',[slug]);
+  if(!nkAdmin())return nkLocked(gen);
+  setActiveNav('western');
   setView(gen,'<div class="nk-empty">Memuat detail...</div>');
   try{
-    const d=await api(`/western/detail?slug=${encodeURIComponent(slug)}`);
+    const d=await authApi(`/western/detail?slug=${encodeURIComponent(slug)}`);
     if(stale(gen))return;
     const m=(d.data&&d.data.item)||{};
     westState.streams=(d.data&&d.data.streams)||[];
