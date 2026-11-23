@@ -27,8 +27,10 @@ function nkCard(a){
 function nkLocked(gen){
   setView(gen,`<div class="nk-locked"><div class="nk-lock-icon">&#128274;</div><h2>Khusus admin</h2><p>Masuk dengan akun admin untuk membuka katalog video.</p><div class="nk-row"><button class="btn btn-primary" onclick="showAuth()">Masuk</button><button class="btn btn-secondary" onclick="navClick('home',loadHome)">Beranda</button></div></div>`);
 }
-function nkPager(page,total,fn){
-  return `<div class="nk-pager"><button class="btn btn-secondary" ${page<=1?'disabled':''} onclick="${fn}(${Math.max(1,page-1)})">&#8592; Sebelumnya</button><span>${page}</span><button class="btn btn-secondary" ${total<18?'disabled':''} onclick="${fn}(${page+1})">Berikutnya &#8594;</button></div>`;
+function nkJarg(x){return typeof x==='number'?String(x):"'"+(String(x).replace(/\\/g,'\\\\').replace(/'/g,"\\'"))+"'"}
+function nkPager(page,hasNext,fn,args=[]){
+  const call=(p)=>esc(`${fn}(${[...args,Math.max(1,p)].map(nkJarg).join(',')})`);
+  return `<div class="nk-pager"><button class="btn btn-secondary" ${page<=1?'disabled':''} onclick="${call(page-1)}">&#8592; Sebelumnya</button><span>${page}</span><button class="btn btn-secondary" ${hasNext?'':'disabled'} onclick="${call(page+1)}">Berikutnya &#8594;</button></div>`;
 }
 function nkHero(title,sub,q){
   return `<section class="nk-hero">
@@ -54,7 +56,7 @@ async function loadNkHome(page=1){
     nkState.home=items;
     setView(gen,`${nkHero('Katalog Video','Koleksi video sub Indonesia · akses admin','')}
       <section class="nk-section"><div class="nk-section-head"><h2>Terbaru</h2><span>${items.length} judul</span></div>${nkGrid(items)}</section>
-      <section class="nk-section">${nkPager(page,items.length,'loadNkHome')}</section>`);
+      <section class="nk-section">${nkPager(page,d.data?.has_next,'loadNkHome')}</section>`);
   }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat katalog')}</div>`)}
 }
 async function loadNkCategory(cat,page=1){
@@ -68,7 +70,7 @@ async function loadNkCategory(cat,page=1){
     const items=(d.data&&d.data.items)||[];
     setView(gen,`${nkHero(`Kategori ${cat}`,`Filter: ${cat}`,'')}
       <section class="nk-section"><div class="nk-section-head"><h2>${esc(cat)}</h2><span>${items.length} judul</span></div>${nkGrid(items,'Tidak ada judul pada kategori ini.')}</section>
-      <section class="nk-section">${nkPager(page,items.length,`loadNkCategory('${esc(cat)}')`)}</section>`);
+      <section class="nk-section">${nkPager(page,d.data?.has_next,'loadNkCategory',[cat])}</section>`);
   }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Gagal memuat katalog')}</div>`)}
 }
 function nkSearchGo(){
@@ -86,7 +88,7 @@ async function loadNkSearch(q,page=1){
     const items=(d.data&&d.data.items)||[];
     setView(gen,`${nkHero(`Hasil: ${q}`,`${items.length} judul ditemukan`,q)}
       <section class="nk-section">${nkGrid(items,'Tidak ada hasil untuk kata kunci ini.')}</section>
-      <section class="nk-section">${nkPager(page,items.length,`loadNkSearch('${esc(q)}')`)}</section>`);
+      <section class="nk-section">${nkPager(page,d.data?.has_next,'loadNkSearch',[q])}</section>`);
   }catch(e){if(!stale(gen))setView(gen,`<div class="nk-empty">${esc(e.message||'Pencarian gagal')}</div>`)}
 }
 function nkTagList(info){
